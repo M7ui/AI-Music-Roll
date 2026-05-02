@@ -1,0 +1,9 @@
+{
+  "name": "ai-piano-roll",
+  "version": "1.0.0",
+  "description": "AI Piano Roll - AI 驱动的钢琴卷帘旋律生成器 (Node.js)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

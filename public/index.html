@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Piano Roll</title>
+<style>
+:root {
+  --bg: #0b0b1e; --surf: #111130; --grid-bg: #0e0e26; --grid-sub: #161636;
+  --grid-b: #222250; --grid-bar: #3a3a68; --row-c: #161638; --kw-bg: #1c1c3c;
+  --kb-bg: #10102a; --kt: #555578; --ktc: #8888bb; --note: #00d4aa;
+  --head: #ff2255; --txt: #ddddef; --txtd: #666688; --acc: #7c6cf7;
+  --acc-h: #9c8cff; --inp-bg: #16163a; --chat-bg: #0a0a1e; --err: #ff4466;
+  --tool-bg: #0e0e28;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overflow:hidden;user-select:none;display:flex;flex-direction:column;height:100vh}
+#toolbar{background:var(--tool-bg);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+#toolbar label{color:var(--txtd);font-size:11px;white-space:nowrap}
+#toolbar input,#toolbar select{background:var(--inp-bg);color:var(--txt);border:1px solid var(--acc);padding:4px 6px;border-radius:3px;font-family:Consolas,monospace;font-size:11px;outline:none}
+#toolbar input:focus,#toolbar select:focus{border-color:var(--acc-h)}
+#vel-slider{width:80px;accent-color:var(--acc)}
+#toolbar button{padding:5px 12px;border:none;border-radius:3px;font-family:Consolas,monospace;font-size:11px;font-weight:bold;cursor:pointer;color:#fff}
+#toolbar button:hover{filter:brightness(1.2)}
+.btn-play{background:#22aa66}.btn-stop{background:#aa4444}.btn-clear{background:#884488}.btn-config{background:var(--acc)}.btn-midi{background:#2a4a8a}
+.sep{color:var(--txtd);margin:0 2px}
+#main{display:flex;flex:1;min-height:0}
+#roll-panel{flex:1;display:flex;min-width:0;position:relative}
+#keys-canvas{background:var(--kb-bg);flex-shrink:0}
+#grid-wrap{flex:1;overflow:auto;position:relative}
+#grid-canvas{display:block;cursor:crosshair}
+#chat-panel{width:380px;background:var(--chat-bg);display:flex;flex-direction:column;flex-shrink:0;border-left:1px solid #1a1a3a}
+#chat-title{padding:12px 14px 6px;font-size:13px;font-weight:bold;color:var(--acc)}
+#chat-msgs{flex:1;overflow-y:auto;padding:6px 12px;font-size:12px;line-height:1.6}
+#chat-msgs .u{color:#88aaff;font-weight:bold}#chat-msgs .ut{color:#ccccff}
+#chat-msgs .al{color:var(--note);font-weight:bold}#chat-msgs .at{color:var(--txt)}
+#chat-msgs .tt{color:var(--txtd);font-size:11px;font-style:italic}#chat-msgs .et{color:var(--err)}#chat-msgs .st{color:#555578;font-size:11px}
+#chat-input-wrap{display:flex;padding:8px 10px;gap:6px;border-top:1px solid #1a1a3a}
+#chat-input{flex:1;background:var(--inp-bg);color:var(--txt);border:1px solid #2a2a4a;border-radius:3px;padding:7px 10px;font-family:Consolas,monospace;font-size:12px;outline:none}
+#chat-input:focus{border-color:var(--acc)}
+#chat-send{background:var(--acc);color:#fff;border:none;border-radius:3px;padding:7px 14px;cursor:pointer;font-family:Consolas,monospace;font-size:11px;font-weight:bold}
+#chat-send:hover{background:var(--acc-h)}#chat-send:disabled{opacity:.5;cursor:not-allowed}
+#status{background:var(--tool-bg);padding:4px 14px;font-size:11px;color:var(--txtd);flex-shrink:0}
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;justify-content:center;align-items:center}
+#modal-overlay.active{display:flex}
+#modal{background:var(--surf);border:1px solid #2a2a5a;border-radius:8px;padding:28px 32px;min-width:420px}
+#modal h2{color:var(--acc);font-size:18px;margin-bottom:4px}
+#modal p.desc{color:var(--txtd);font-size:11px;margin-bottom:18px}
+#modal .row{display:flex;align-items:center;margin:8px 0}
+#modal .row label{width:80px;color:var(--txt);font-size:12px;flex-shrink:0}
+#modal .row input{flex:1;background:var(--inp-bg);color:var(--txt);border:1px solid #2a2a4a;border-radius:3px;padding:7px 10px;font-family:Consolas,monospace;font-size:12px;outline:none}
+#modal .row input:focus{border-color:var(--acc)}
+#modal .btns{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+#modal .btns button{padding:7px 20px;border:none;border-radius:3px;font-family:Consolas,monospace;font-size:12px;font-weight:bold;cursor:pointer;color:#fff}
+#modal .btns .ok{background:var(--acc)}
+#modal .btns .cancel{background:var(--surf);border:1px solid #2a2a4a}
+#modal .btns .test{background:#2a6a3a;border:1px solid #3a8a4a}
+#modal .btns .test:hover{background:#3a8a4a}
+#modal .btns .test:disabled{opacity:.5;cursor:not-allowed}
+#cfg-feedback{min-height:18px;font-size:11px;margin:6px 0 0;text-align:center}
+#cfg-feedback.ok{color:var(--note)}#cfg-feedback.err{color:var(--err)}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--txtd);border-radius:3px}
+#sound-badge{display:inline-block;background:#1a3a2a;color:#44cc88;font-size:10px;padding:2px 6px;border-radius:3px;margin-left:4px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <label>BPM:</label>
+  <input id="bpm-inp" type="number" value="120" min="40" max="300" style="width:58px">
+  <label>时值:</label>
+  <select id="dur-sel">
+    <option value="0.25">0.25</option><option value="0.5">0.5</option>
+    <option value="1" selected>1.0</option><option value="2">2.0</option><option value="4">4.0</option>
+  </select>
+  <span class="sep">│</span>
+  <label>力度:</label>
+  <input id="vel-slider" type="range" min="1" max="127" value="100">
+  <span id="vel-label" style="color:var(--acc);font-size:11px;min-width:28px">100</span>
+  <span class="sep">│</span>
+  <button class="btn-play" id="btn-play">▶ 播放</button>
+  <button class="btn-stop" id="btn-stop">■ 停止</button>
+  <button class="btn-midi" id="btn-midi">⬇ MIDI</button>
+  <button class="btn-clear" id="btn-clear">✕ 清除</button>
+  <span style="flex:1"></span>
+  <span id="sound-badge">🎵 默认音色</span>
+  <button class="btn-config" id="btn-config">⚙ 配置</button>
+</div>
+
+<div id="main">
+  <div id="roll-panel">
+    <canvas id="keys-canvas"></canvas>
+    <div id="grid-wrap">
+      <canvas id="grid-canvas"></canvas>
+    </div>
+  </div>
+  <div id="chat-panel">
+    <div id="chat-title">🎵 AI 作曲助手</div>
+    <div id="chat-msgs"></div>
+    <div id="chat-input-wrap">
+      <input id="chat-input" placeholder="告诉 AI 你想创作什么音乐…" autocomplete="off">
+      <button id="chat-send">发送</button>
+    </div>
+  </div>
+</div>
+
+<div id="status">就绪</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <h2>🎹 AI Piano Roll — API 配置</h2>
+    <p class="desc">请配置 AI 模型连接信息</p>
+    <div class="row"><label>类型:</label>
+      <label style="margin-right:12px"><input type="radio" name="cfg-provider" value="cloud" checked> 云端 (OpenAI/兼容API)</label>
+      <label><input type="radio" name="cfg-provider" value="local"> 本地 (Ollama/LM Studio)</label>
+    </div>
+    <div class="row"><label>Base URL:</label><input id="cfg-url" placeholder="https://api.openai.com/v1 或 http://127.0.0.1:1234"></div>
+    <div class="row"><label>API Key:</label><input id="cfg-key" type="password" placeholder="本地模型可留空">
+      <small id="cfg-key-hint" style="display:none;color:#888;margin-left:8px">本地模型不需要API Key</small>
+    </div>
+    <div class="row"><label>模型:</label><input id="cfg-model" placeholder="gpt-4o / llama3.2 / phi3"></div>
+    <div id="cfg-feedback"></div>
+    <div class="btns">
+      <button class="test" id="cfg-test">测试连接</button>
+      <span style="flex:1"></span>
+      <button class="cancel" id="cfg-cancel">取消</button>
+      <button class="ok" id="cfg-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const BLACK_KEYS = new Set([1,3,6,8,10]);
+const MIN_P = 36, MAX_P = 84, N_P = MAX_P - MIN_P;
+const KEY_W = 56, HDR_H = 22;
+const BPB = 4, DEF_BARS = 8, DEF_VEL = 100;
+const SUBDIV = 4;
+
+let CELL_H, CELL_W;
+
+const SYSTEM_PROMPT_BASE = `You are a professional music composition AI assistant embedded in a piano-roll editor. Help users create melodies, chord progressions, bass lines and arrangements by calling tools. You MUST respond in Chinese unless the user writes in another language.
+
+PIANO ROLL SPECS: MIDI note range displayed: 36 (C2) – 83 (B6). Recommended melodic range: 48–79. Time is measured in beats (quarter-notes). Grid resolution: 0.25 beat (16th note). Default tempo 120 BPM, time-signature 4/4, velocity 100 (range 1-127).
+
+TOOLS (always prefer add_notes for batches):
+add_note(pitch, start_beat, duration, velocity=100) — pitch 36-83, start_beat float, duration 0.25/0.5/1/2/4
+add_notes(notes) — batch: [{pitch, start_beat, duration, velocity?}, …]
+remove_note(pitch, start_beat)
+clear_all()
+get_notes() — returns current note list
+set_tempo(bpm) — 40-300
+set_key(root_note, scale_type) — root_note: MIDI num; scale_type: major|minor|pentatonic_major|pentatonic_minor|blues|dorian|mixolydian
+set_time_signature(numerator, denominator)
+
+NOTE → MIDI QUICK REF: C4=60 (middle C). Each octave +12. C=0 C#=1 D=2 D#=3 E=4 F=5 F#=6 G=7 G#=8 A=9 A#=10 B=11. C3=48 D3=50 E3=52 F3=53 G3=55 A3=57 B3=59. C4=60 D4=62 E4=64 F4=65 G4=67 A4=69 B4=71. C5=72 D5=74 E5=76 F5=77 G5=79 A5=81 B5=83.
+
+RULES: Use add_notes for batches; pitch 36-83; snap 0.25-beat grid. Same-pitch notes must not overlap in time. Always explain what you wrote and the musical reasoning in Chinese.`;
+
+let techniquesContent = '';
+
+async function loadTechniques() {
+  try {
+    const resp = await fetch('/api/techniques');
+    if (resp.ok) {
+      techniquesContent = await resp.text();
+    }
+  } catch(e) {
+    techniquesContent = '';
+  }
+}
+
+function buildSystemPrompt() {
+  if (techniquesContent) {
+    return SYSTEM_PROMPT_BASE + '\n\n' + techniquesContent;
+  }
+  return SYSTEM_PROMPT_BASE;
+}
+
+const TOOLS = [
+  {type:"function",function:{name:"add_note",description:"Add a single note to the piano roll",
+    parameters:{type:"object",properties:{
+      pitch:{type:"integer",description:"MIDI 36-83"},
+      start_beat:{type:"number",description:"Start beat (0-based, 0.25 increments)"},
+      duration:{type:"number",description:"0.25/0.5/1/2/4 beats"},
+      velocity:{type:"integer",description:"1-127, default 100"}},
+      required:["pitch","start_beat","duration"]}}},
+  {type:"function",function:{name:"add_notes",description:"Batch-add multiple notes at once",
+    parameters:{type:"object",properties:{notes:{type:"array",
+      items:{type:"object",properties:{
+        pitch:{type:"integer"},start_beat:{type:"number"},
+        duration:{type:"number"},velocity:{type:"integer"}},
+        required:["pitch","start_beat","duration"]}}},
+      required:["notes"]}}},
+  {type:"function",function:{name:"remove_note",description:"Remove a note at pitch & start_beat",
+    parameters:{type:"object",properties:{
+      pitch:{type:"integer"},start_beat:{type:"number"}},
+      required:["pitch","start_beat"]}}},
+  {type:"function",function:{name:"clear_all",description:"Remove all notes",
+    parameters:{type:"object",properties:{}}}},
+  {type:"function",function:{name:"get_notes",description:"List all current notes",
+    parameters:{type:"object",properties:{}}}},
+  {type:"function",function:{name:"set_tempo",description:"Set BPM (40-300)",
+    parameters:{type:"object",properties:{bpm:{type:"number"}},required:["bpm"]}}},
+  {type:"function",function:{name:"set_key",description:"Set musical key context",
+    parameters:{type:"object",properties:{
+      root_note:{type:"integer",description:"MIDI root (60=C)"},
+      scale_type:{type:"string",
+      enum:["major","minor","pentatonic_major","pentatonic_minor","blues","dorian","mixolydian"]}},
+      required:["root_note","scale_type"]}}},
+  {type:"function",function:{name:"set_time_signature",description:"Set time signature",
+    parameters:{type:"object",properties:{
+      numerator:{type:"integer"},denominator:{type:"integer"}},
+      required:["numerator","denominator"]}}},
+];
+
+let notes = [];
+let bpm = 120;
+let bars = DEF_BARS;
+let messages = [];
+let busy = false;
+let playing = false;
+let playStart = 0;
+let playAnimId = null;
+let audioCtx = null;
+let scheduledOscs = [];
+let soundPack = null;
+let soundPackName = '';
+let velDefault = 100;
+let isDragging = false;
+let dragNote = null;
+let dragStartX = 0;
+let dragStartBeat = 0;
+let dragStartPitch = 0;
+let lastDragX = 0;
+let lastDragY = 0;
+let dragraf = null;
+
+const $ = id => document.getElementById(id);
+const keysCv = $('keys-canvas');
+const gridCv = $('grid-canvas');
+const gridWrap = $('grid-wrap');
+const chatMsgs = $('chat-msgs');
+const chatInput = $('chat-input');
+const chatSend = $('chat-send');
+const statusEl = $('status');
+const modalOverlay = $('modal-overlay');
+const bpmInp = $('bpm-inp');
+const durSel = $('dur-sel');
+const velSlider = $('vel-slider');
+const velLabel = $('vel-label');
+const soundBadge = $('sound-badge');
+
+// ═══ Responsive Canvas Sizing ══════════════════════════════════
+function calcCellSize() {
+  const availW = gridWrap.clientWidth || 800;
+  const availH = window.innerHeight - toolbar.offsetHeight - statusEl.offsetHeight - 4;
+  
+  const minCellH = 10;
+  const minCellW = 8;
+  const maxCellW = 32;
+  
+  CELL_H = Math.max(minCellH, Math.floor(availH / N_P));
+  
+  const totalDivs = bars * BPB * SUBDIV;
+  let cw = Math.floor((availW - KEY_W) / totalDivs);
+  
+  if (cw < minCellW) {
+    const neededBars = Math.floor((availW - KEY_W) / (BPB * SUBDIV * minCellW));
+    bars = Math.max(DEF_BARS, Math.min(64, neededBars + 2));
+    CELL_W = minCellW;
+  } else {
+    CELL_W = Math.min(maxCellW, cw);
+    const actualBars = Math.floor((availW - KEY_W) / (CELL_W * BPB * SUBDIV));
+    bars = Math.max(DEF_BARS, Math.min(64, actualBars));
+  }
+  
+  const remainingW = (availW - KEY_W) % (bars * BPB * SUBDIV);
+  if (remainingW > 0 && CELL_W < maxCellW) {
+    CELL_W = Math.min(maxCellW, CELL_W + 1);
+  }
+}
+
+function paintAll() {
+  calcCellSize();
+  const tw = bars * BPB * SUBDIV * CELL_W;
+  const th = N_P * CELL_H;
+  const dpr = window.devicePixelRatio || 1;
+
+  keysCv.width = KEY_W * dpr;
+  keysCv.height = (HDR_H + th) * dpr;
+  keysCv.style.width = KEY_W + 'px';
+  keysCv.style.height = (HDR_H + th) + 'px';
+
+  gridCv.width = tw * dpr;
+  gridCv.height = (HDR_H + th) * dpr;
+  gridCv.style.width = tw + 'px';
+  gridCv.style.height = (HDR_H + th) + 'px';
+
+  const gctx = gridCv.getContext('2d');
+  const kctx = keysCv.getContext('2d');
+  gctx.setTransform(dpr,0,0,dpr,0,0);
+  kctx.setTransform(dpr,0,0,dpr,0,0);
+
+  gctx.fillStyle = '#0e0e26'; gctx.fillRect(0,0,tw,HDR_H+th);
+  gctx.fillStyle = '#0e0e28'; gctx.fillRect(0,0,tw,HDR_H);
+  kctx.fillStyle = '#10102a'; kctx.fillRect(0,0,KEY_W,HDR_H+th);
+  kctx.fillStyle = '#0e0e28'; kctx.fillRect(0,0,KEY_W,HDR_H);
+
+  const fontSize = Math.max(7, Math.min(11, Math.floor(CELL_H * 0.65)));
+
+  for (let i = 0; i < N_P; i++) {
+    const p = MAX_P - 1 - i;
+    const y = HDR_H + i * CELL_H;
+    const s = p % 12;
+    const isBlack = BLACK_KEYS.has(s);
+    const isC = s === 0;
+    let rowBg = '#0e0e26';
+    if (isC) rowBg = '#161638'; else if (isBlack) rowBg = '#161636';
+    gctx.fillStyle = rowBg; gctx.fillRect(0,y,tw,CELL_H);
+    gctx.strokeStyle = isBlack ? '#222250' : '#111130';
+    gctx.beginPath(); gctx.moveTo(0,y+CELL_H); gctx.lineTo(tw,y+CELL_H); gctx.stroke();
+
+    let keyBg = '#10102a';
+    if (isC) keyBg = '#161638'; else if (!isBlack) keyBg = '#1c1c3c';
+    kctx.fillStyle = keyBg; kctx.fillRect(0,y,KEY_W,CELL_H);
+    const nm = NOTE_NAMES[s] + (Math.floor(p/12)-1);
+    kctx.fillStyle = isC ? '#8888bb' : '#555578';
+    kctx.font = `${fontSize}px Consolas`; kctx.textAlign = 'right';
+    kctx.fillText(nm, KEY_W-4, y+CELL_H/2+fontSize/3-1);
+  }
+
+  for (let bar = 0; bar < bars; bar++) {
+    for (let beat = 0; beat < BPB; beat++) {
+      for (let sub = 0; sub < SUBDIV; sub++) {
+        const x = (bar*BPB+beat)*SUBDIV*CELL_W + sub*CELL_W;
+        if (sub > 0) {
+          gctx.strokeStyle = '#161636'; gctx.beginPath();
+          gctx.moveTo(x,HDR_H); gctx.lineTo(x,HDR_H+th); gctx.stroke();
+        }
+      }
+      const xb = (bar*BPB+beat)*SUBDIV*CELL_W;
+      gctx.strokeStyle = '#222250'; gctx.beginPath();
+      gctx.moveTo(xb,HDR_H); gctx.lineTo(xb,HDR_H+th); gctx.stroke();
+    }
+    const xm = bar*BPB*SUBDIV*CELL_W;
+    gctx.strokeStyle = '#3a3a68'; gctx.lineWidth = 1;
+    gctx.beginPath(); gctx.moveTo(xm,HDR_H); gctx.lineTo(xm,HDR_H+th); gctx.stroke();
+    gctx.fillStyle = '#666688'; gctx.font = `${Math.max(8,fontSize)}px Consolas`; gctx.textAlign = 'left';
+    gctx.fillText(String(bar+1), xm+3, HDR_H/2+fontSize/3);
+  }
+
+  for (const n of notes) {
+    const p = n.pitch;
+    if (p < MIN_P || p >= MAX_P) continue;
+    const x1 = n.start_beat * SUBDIV * CELL_W;
+    const y1 = HDR_H + (MAX_P-1-p) * CELL_H;
+    const x2 = x1 + n.duration * SUBDIV * CELL_W;
+    const y2 = y1 + CELL_H - 1;
+    const t = (n.velocity||DEF_VEL)/127;
+    const g = Math.floor(100+112*t);
+    const bv = Math.floor(80+90*t);
+    const isDraggingNote = isDragging && dragNote && n.pitch === dragNote.pitch && Math.abs(n.start_beat - dragNote.start_beat) < 0.001;
+    if (isDraggingNote) {
+      gctx.fillStyle = '#ffff44';
+      gctx.strokeStyle = '#ffffff';
+    } else {
+      gctx.fillStyle = `rgb(0,${g},${bv})`;
+      gctx.strokeStyle = '#00aa88';
+    }
+    gctx.fillRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
+    gctx.strokeRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
+  }
+}
+
+const toolbar = document.getElementById('toolbar');
+
+function pitchBeatFromXY(ex, ey) {
+  const beat = ex / CELL_W / SUBDIV;
+  const prow = Math.floor((ey - HDR_H) / CELL_H);
+  if (prow < 0 || prow >= N_P) return null;
+  return { pitch: MAX_P - 1 - prow, beat };
+}
+
+function findAt(pitch, beat) {
+  return notes.find(n => n.pitch===pitch && beat>=n.start_beat && beat<n.start_beat+n.duration);
+}
+
+function addNote(pitch, start, dur, vel) {
+  notes = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
+  notes.push({pitch, start_beat:start, duration:dur, velocity:vel||velDefault});
+}
+
+function rmNote(pitch, start) {
+  notes = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
+}
+
+gridCv.addEventListener('mousedown', e => {
+  if (playing) return;
+  if (e.button !== 0) return;
+  const rect = gridCv.getBoundingClientRect();
+  const scrollX = gridWrap.scrollLeft;
+  const scrollY = gridWrap.scrollTop;
+  const res = pitchBeatFromXY(e.clientX-rect.left+scrollX, e.clientY-rect.top+scrollY);
+  if (!res) return;
+  const snapB = Math.round(res.beat/0.25)*0.25;
+  const ex = findAt(res.pitch, snapB);
+  if (ex) {
+    isDragging = true;
+    dragNote = ex;
+    dragStartX = e.clientX;
+    dragStartBeat = ex.start_beat;
+    dragStartPitch = ex.pitch;
+    lastDragX = e.clientX;
+    lastDragY = e.clientY;
+    gridCv.style.cursor = 'grabbing';
+    e.preventDefault();
+  } else {
+    const dur = parseFloat(durSel.value);
+    addNote(res.pitch, snapB, dur);
+    paintAll(); updateStatus();
+  }
+});
+
+gridCv.addEventListener('mousemove', e => {
+  if (playing) return;
+  const rect = gridCv.getBoundingClientRect();
+  const scrollX = gridWrap.scrollLeft;
+  const scrollY = gridWrap.scrollTop;
+  const res = pitchBeatFromXY(e.clientX-rect.left+scrollX, e.clientY-rect.top+scrollY);
+  if (res) {
+    const nm = NOTE_NAMES[res.pitch%12]+(Math.floor(res.pitch/12)-1);
+    statusEl.textContent = `${nm} (MIDI ${res.pitch})  |  Beat ${res.beat.toFixed(2)}  |  Notes: ${notes.length}`;
+    if (isDragging && dragNote) {
+      if (Math.abs(e.clientX - lastDragX) > 3 || Math.abs(e.clientY - lastDragY) > 3) {
+        const deltaX = e.clientX - dragStartX;
+        const deltaBeat = deltaX / (SUBDIV * CELL_W);
+        let newBeat = Math.max(0, dragStartBeat + deltaBeat);
+        newBeat = Math.round(newBeat / 0.25) * 0.25;
+        const deltaY = dragStartPitch - res.pitch;
+        let newPitch = dragStartPitch;
+        if (Math.abs(deltaY) >= 1) {
+          newPitch = Math.max(MIN_P, Math.min(MAX_P - 1, dragStartPitch - deltaY));
+          newPitch = Math.round(newPitch);
+        }
+        if (newPitch !== dragNote.pitch || newBeat !== dragNote.start_beat) {
+          dragNote.pitch = newPitch;
+          dragNote.start_beat = newBeat;
+          lastDragX = e.clientX;
+          lastDragY = e.clientY;
+          if (dragraf) cancelAnimationFrame(dragraf);
+          dragraf = requestAnimationFrame(() => {
+            paintAll();
+            const nm2 = NOTE_NAMES[newPitch%12]+(Math.floor(newPitch/12)-1);
+            statusEl.textContent = `拖动中: ${nm2} (MIDI ${newPitch})  |  Beat ${newBeat.toFixed(2)}`;
+          });
+        }
+      }
+    }
+  } else { updateStatus(); }
+});
+
+gridCv.addEventListener('mouseup', e => {
+  if (isDragging && dragNote) {
+    isDragging = false;
+    dragNote = null;
+    gridCv.style.cursor = 'crosshair';
+    paintAll(); updateStatus();
+  }
+});
+
+gridCv.addEventListener('mouseleave', e => {
+  if (isDragging && dragNote) {
+    isDragging = false;
+    dragNote = null;
+    gridCv.style.cursor = 'crosshair';
+    paintAll(); updateStatus();
+  }
+});
+
+gridCv.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (playing) return;
+  const rect = gridCv.getBoundingClientRect();
+  const scrollX = gridWrap.scrollLeft;
+  const scrollY = gridWrap.scrollTop;
+  const res = pitchBeatFromXY(e.clientX-rect.left+scrollX, e.clientY-rect.top+scrollY);
+  if (!res) return;
+  const ex = findAt(res.pitch, res.beat);
+  if (ex) { rmNote(ex.pitch, ex.start_beat); paintAll(); updateStatus(); }
+});
+
+gridWrap.addEventListener('scroll', () => {
+  keysCv.style.marginTop = -gridWrap.scrollTop + 'px';
+});
+
+window.addEventListener('resize', () => { paintAll(); });
+
+function updateStatus() {
+  statusEl.textContent = `Notes: ${notes.length}  |  BPM: ${bpm}  |  小节: ${bars}  |  音效: ${soundPackName || '默认音色'}`;
+}
+
+// ═══ Sound Pack ═══════════════════════════════════════════════
+async function loadSoundPack() {
+  try {
+    const resp = await fetch('/vocal/');
+    if (!resp.ok) throw new Error('音效包目录不存在');
+    const json = await resp.json();
+    const files = json.files || [];
+    if (files.length === 0) throw new Error('未找到支持的音频文件 (WAV/MP3/OGG/M4A/AAC/FLAC)');
+    const buffers = {};
+    for (const file of files) {
+      const fresp = await fetch('/vocal/' + encodeURIComponent(file));
+      const buf = await fresp.arrayBuffer();
+      buffers[file] = buf;
+    }
+    soundPack = buffers;
+    const ext = files.length === 1 ? '.' + files[0].split('.').pop().toLowerCase() : '';
+    soundPackName = files.length === 1 ? files[0].replace(ext, '') : `${files.length}个音效`;
+    soundBadge.textContent = '🎵 ' + soundPackName;
+    soundBadge.style.background = '#1a3a2a';
+    soundBadge.style.color = '#44cc88';
+  } catch(e) {
+    soundPack = null;
+    soundPackName = '';
+    soundBadge.textContent = '🎵 默认音色';
+    soundBadge.style.background = '';
+    soundBadge.style.color = '';
+  }
+}
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playNote(pitch, startTime, duration, vel) {
+  if (!audioCtx) return;
+  vel = vel || velDefault;
+  if (soundPack) {
+    playSample(pitch, startTime, duration, vel);
+  } else {
+    playSynth(pitch, startTime, duration, vel);
+  }
+}
+
+function playSynth(pitch, startTime, duration, vel) {
+  const freq = 440 * Math.pow(2, (pitch-69)/12);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  const v = vel/127;
+  gain.gain.setValueAtTime(v*0.25, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime+duration*0.85);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(startTime); osc.stop(startTime+duration);
+  scheduledOscs.push(osc);
+}
+
+function playSample(pitch, startTime, duration, vel) {
+  if (!audioCtx || !soundPack) return;
+  const semitonesFromC4 = pitch - 60;
+  const pitchRatio = Math.pow(2, semitonesFromC4 / 12);
+  const v = (vel/127) * 0.8;
+
+  for (const [filename, buf] of Object.entries(soundPack)) {
+    audioCtx.decodeAudioData(buf, (decoded) => {
+      const src = audioCtx.createBufferSource();
+      src.buffer = decoded;
+      src.playbackRate.value = pitchRatio;
+
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(v, startTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + Math.min(duration * 0.85, decoded.duration * 0.9));
+
+      src.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      src.start(startTime);
+      scheduledOscs.push(src);
+    });
+    break;
+  }
+}
+
+function stopAllAudio() {
+  try { for (const o of scheduledOscs) { try { o.stop(); } catch(e){} } } catch(e){}
+  scheduledOscs = [];
+}
+
+// ═══ MIDI Download ════════════════════════════════════════════
+function downloadMidi() {
+  if (!notes.length) { alert('没有音符可导出'); return; }
+  const midi = buildMidi();
+  const blob = new Blob([midi], {type:'audio/midi'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ai-piano-roll.mid'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildMidi() {
+  const tpqn = 480;
+  const usPerQ = Math.round(60000000 / bpm);
+  const evts = [];
+  
+  evts.push(...encodeVarLen(0));
+  evts.push(0xff, 0x03, 14);
+  const trackName = 'AI Piano Roll';
+  for (let i = 0; i < trackName.length; i++) {
+    evts.push(trackName.charCodeAt(i));
+  }
+  
+  evts.push(...encodeVarLen(0));
+  evts.push(0xff, 0x51, 0x03, (usPerQ>>16)&0xff, (usPerQ>>8)&0xff, usPerQ&0xff);
+  
+  evts.push(...encodeVarLen(0));
+  evts.push(0xc0, 0);
+  
+  const sorted = notes.slice().sort((a,b)=>a.start_beat-b.start_beat||a.pitch-b.pitch);
+  let lastTick = 0;
+  for (const n of sorted) {
+    const tick = Math.round(n.start_beat * tpqn);
+    const delta = tick - lastTick;
+    lastTick = tick;
+    const dur = Math.round(n.duration * tpqn);
+    const vel = n.velocity || DEF_VEL;
+    evts.push(...encodeVarLen(delta));
+    evts.push(0x90, n.pitch, vel);
+    evts.push(...encodeVarLen(dur));
+    evts.push(0x80, n.pitch, 0);
+  }
+  
+  evts.push(...encodeVarLen(0));
+  evts.push(0xff, 0x2f, 0x00);
+  
+  const trackData = new Uint8Array(evts);
+  const track = new Uint8Array([
+    0x4d, 0x54, 0x72, 0x6b,
+    (trackData.length>>>24)&0xff, (trackData.length>>>16)&0xff,
+    (trackData.length>>>8)&0xff, trackData.length&0xff,
+    ...trackData
+  ]);
+  
+  const header = new Uint8Array([
+    0x4d, 0x54, 0x68, 0x64,
+    0, 0, 0, 6,
+    0, 0,
+    0, 1,
+    0, tpqn>>>8, tpqn&0xff
+  ]);
+  
+  return new Uint8Array([...header, ...track]);
+}
+
+function encodeVarLen(val) {
+  const b = [];
+  b.push(val & 0x7f); val >>= 7;
+  while (val) { b.push((val & 0x7f) | 0x80); val >>= 7; }
+  return b.reverse();
+}
+
+$('btn-midi').addEventListener('click', downloadMidi);
+
+// ═══ Playback ═════════════════════════════════════════════════
+$('btn-play').addEventListener('click', () => {
+  if (playing) return;
+  ensureAudio();
+  bpm = parseInt(bpmInp.value)||120;
+  playing = true;
+  playStart = audioCtx.currentTime;
+  const spb = 60/bpm;
+  for (const n of notes) {
+    playNote(n.pitch, playStart + n.start_beat*spb, n.duration*spb, n.velocity);
+  }
+  animatePlayhead();
+});
+
+$('btn-stop').addEventListener('click', () => {
+  playing = false;
+  stopAllAudio();
+  if (playAnimId) cancelAnimationFrame(playAnimId);
+  playAnimId = null;
+  paintAll();
+});
+
+function animatePlayhead() {
+  if (!playing) return;
+  ensureAudio();
+  const elapsed = audioCtx.currentTime - playStart;
+  const beat = elapsed * bpm / 60;
+  const total = bars * BPB;
+  if (beat > total) { playing = false; paintAll(); updateStatus(); return; }
+  paintAll();
+  const gctx = gridCv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const x = beat * SUBDIV * CELL_W;
+  const sx = (x - gridWrap.scrollLeft) * dpr;
+  gctx.strokeStyle = '#ff2255'; gctx.lineWidth = 2 * dpr;
+  gctx.beginPath(); gctx.moveTo(sx, HDR_H*dpr); gctx.lineTo(sx, (HDR_H+N_P*CELL_H)*dpr); gctx.stroke();
+  gctx.lineWidth = 1;
+  playAnimId = requestAnimationFrame(animatePlayhead);
+}
+
+$('btn-clear').addEventListener('click', () => {
+  if (!notes.length || !confirm('清除所有音符？')) return;
+  notes = []; paintAll(); updateStatus();
+});
+
+bpmInp.addEventListener('change', () => { bpm = parseInt(bpmInp.value)||120; updateStatus(); });
+velSlider.addEventListener('input', () => { velDefault = parseInt(velSlider.value); velLabel.textContent = velDefault; });
+velSlider.addEventListener('change', () => { velDefault = parseInt(velSlider.value); });
+
+// ═══ Chat ════════════════════════════════════════════════════
+function chatAppend(cls, text) {
+  const div = document.createElement('div');
+  div.className = cls; div.textContent = text;
+  chatMsgs.appendChild(div);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
+}
+
+async function chatSendMsg() {
+  if (busy) return;
+  const txt = chatInput.value.trim();
+  if (!txt) return;
+  chatInput.value = '';
+  chatAppend('u', '\nYou:');
+  chatAppend('ut', txt);
+  messages.push({role:'user',content:txt});
+  busy = true;
+  chatSend.disabled = true;
+  statusEl.textContent = 'AI 正在思考…';
+
+  try {
+    while (true) {
+      const body = {model: loadCfgModel(), messages, tools:TOOLS};
+      const resp = await fetch('/api/chat', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) {
+        const e = await resp.json().catch(()=>({}));
+        throw new Error(e.error||`HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      const msg = data.choices[0].message;
+      messages.push(msg);
+
+      if (msg.tool_calls) {
+        for (const tc of msg.tool_calls) {
+          const fn = tc.function.name;
+          const args = JSON.parse(tc.function.arguments);
+          const res = execTool(fn, args);
+          chatAppend('tt', `  ⚙ ${fn}(${JSON.stringify(args).slice(0,80)})`);
+          messages.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(res)});
+        }
+        continue;
+      }
+      const c = msg.content||'';
+      if (c) { chatAppend('al', '\nAI:'); chatAppend('at', c); }
+      break;
+    }
+  } catch(e) {
+    chatAppend('et', '\n⚠ '+e.message);
+  } finally {
+    busy = false;
+    chatSend.disabled = false;
+    paintAll(); updateStatus();
+  }
+}
+
+chatSend.addEventListener('click', chatSendMsg);
+chatInput.addEventListener('keydown', e => { if (e.key==='Enter') chatSendMsg(); });
+
+// ═══ Tool Execution ══════════════════════════════════════════
+function execTool(name, args) {
+  try {
+    switch(name) {
+    case 'add_note': {
+      const p=args.pitch, s=args.start_beat, d=args.duration, v=args.velocity;
+      addNote(p,s,d,v); paintAll();
+      return {ok:true, note:NOTE_NAMES[p%12]+(Math.floor(p/12)-1), beat:s, dur:d};
+    }
+    case 'add_notes': {
+      let c=0;
+      for (const nt of args.notes) {
+        addNote(nt.pitch, nt.start_beat, nt.duration, nt.velocity); c++;
+      }
+      paintAll(); return {ok:true, count:c};
+    }
+    case 'remove_note': {
+      const b4=notes.length;
+      rmNote(args.pitch, args.start_beat);
+      paintAll(); return {ok: notes.length<b4};
+    }
+    case 'clear_all':
+      notes=[]; paintAll(); return {ok:true};
+    case 'get_notes':
+      return {notes, count:notes.length};
+    case 'set_tempo':
+      bpm=Math.max(40,Math.min(300,args.bpm));
+      bpmInp.value=bpm; updateStatus();
+      return {ok:true, bpm};
+    case 'set_key':
+      return {ok:true, key:NOTE_NAMES[args.root_note%12]+' '+args.scale_type};
+    case 'set_time_signature':
+      return {ok:true, ts:args.numerator+'/'+args.denominator};
+    default: return {error:'unknown tool'};
+    }
+  } catch(e) { return {error:e.message}; }
+}
+
+// ═══ Welcome ═════════════════════════════════════════════════
+chatAppend('st', '🎹  欢迎使用 AI Piano Roll！');
+chatAppend('st', '');
+chatAppend('st', '在下方输入框告诉 AI 你想创作什么音乐，例如：');
+chatAppend('st', '  · "写一段 C 大调的流行旋律"');
+chatAppend('st', '  · "创作 Am 小调的爵士和弦进行"');
+chatAppend('st', '  · "来一段 12 小节布鲁斯"');
+chatAppend('st', '');
+chatAppend('st', '也可点击左侧网格手动添加音符（左键添加/切换，右键删除）。');
+chatAppend('st', '—————————');
+chatAppend('st', '💡 音效包提示：将音频文件放入 /vocal/ 目录');
+chatAppend('st', '   支持格式：WAV、MP3、OGG、M4A、AAC、FLAC');
+
+// ═══ Config ══════════════════════════════════════════════════
+function loadCfgModel() {
+  try { return JSON.parse(localStorage.getItem('ai_piano_cfg')||'{}').model||'gpt-4o'; }
+  catch { return 'gpt-4o'; }
+}
+
+$('btn-config').addEventListener('click', async () => {
+  modalOverlay.classList.add('active');
+  $('cfg-feedback').className = ''; $('cfg-feedback').textContent = '';
+  try {
+    const resp = await fetch('/api/config');
+    const cfg = await resp.json();
+    document.querySelector('input[name="cfg-provider"][value="'+cfg.provider+'"]').checked = true;
+    $('cfg-url').value = cfg.base_url || 'https://api.openai.com/v1';
+    $('cfg-key').value = cfg.api_key || '';
+    $('cfg-model').value = cfg.model || 'gpt-4o';
+    updateKeyHint();
+  } catch(e) {
+    document.querySelector('input[name="cfg-provider"][value="cloud"]').checked = true;
+    $('cfg-url').value = 'https://api.openai.com/v1';
+    $('cfg-key').value = '';
+    $('cfg-model').value = 'gpt-4o';
+    updateKeyHint();
+  }
+});
+
+function updateKeyHint() {
+  const isLocal = document.querySelector('input[name="cfg-provider"]:checked').value === 'local';
+  const hint = $('cfg-key-hint');
+  const keyInput = $('cfg-key');
+  if (hint) hint.style.display = isLocal ? 'inline' : 'none';
+  if (keyInput) keyInput.placeholder = isLocal ? '本地模型可留空' : 'sk-...';
+}
+
+document.querySelectorAll('input[name="cfg-provider"]').forEach(r => {
+  r.addEventListener('change', updateKeyHint);
+});
+
+$('cfg-test').addEventListener('click', async () => {
+  const fb = $('cfg-feedback');
+  const btn = $('cfg-test');
+  const cfg = {
+    provider: document.querySelector('input[name="cfg-provider"]:checked').value,
+    base_url: $('cfg-url').value.trim(),
+    api_key: $('cfg-key').value.trim(),
+    model: $('cfg-model').value.trim(),
+  };
+  if (!cfg.base_url) { fb.className='err'; fb.textContent='请先输入 Base URL'; return; }
+  if (!cfg.model) { fb.className='err'; fb.textContent='请输入模型名称'; return; }
+  btn.disabled = true;
+  fb.className = ''; fb.textContent = '正在测试连接…';
+  try {
+    const resp = await fetch('/api/test', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(cfg)
+    });
+    if (!resp.ok) {
+      const e = await resp.json().catch(()=>({}));
+      throw new Error(e.error||`HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    fb.className = 'ok';
+    fb.textContent = `✅ 连接成功 (${data.ms}ms, ${data.model})`;
+  } catch(e) {
+    fb.className = 'err';
+    fb.textContent = `❌ ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$('cfg-cancel').addEventListener('click', () => { modalOverlay.classList.remove('active'); });
+$('cfg-save').addEventListener('click', async () => {
+  const cfg = {
+    provider: document.querySelector('input[name="cfg-provider"]:checked').value,
+    base_url: $('cfg-url').value.trim(),
+    api_key: $('cfg-key').value.trim(),
+    model: $('cfg-model').value.trim(),
+  };
+  if (!cfg.base_url) { alert('请输入 Base URL'); return; }
+  if (!cfg.model) { alert('请输入模型名称'); return; }
+  try {
+    const resp = await fetch('/api/config', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(cfg)
+    });
+    if (!resp.ok) throw new Error('保存失败');
+    localStorage.setItem('ai_piano_cfg', JSON.stringify(cfg));
+    modalOverlay.classList.remove('active');
+    messages = [{role:'system',content:buildSystemPrompt()}];
+    statusEl.textContent = '配置已保存';
+  } catch(e) {
+    alert('保存配置失败: '+e.message);
+  }
+});
+
+modalOverlay.addEventListener('click', e => {
+  if (e.target===modalOverlay) modalOverlay.classList.remove('active');
+});
+
+// ═══ Init ════════════════════════════════════════════════════
+(async function init() {
+  await loadTechniques();
+  messages = [{role:'system',content:buildSystemPrompt()}];
+  paintAll();
+  updateStatus();
+  loadSoundPack();
+})();
+</script>
+</body>
+</html>
