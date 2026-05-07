@@ -1,0 +1,17 @@
+# API 配置文件（含密钥）
+.ai_piano_roll_cfg.json
+
+# Node
+node_modules/
+
+# 音色文件
+vocal/*.wav
+vocal/*.mp3
+vocal/*.ogg
+vocal/*.m4a
+vocal/*.aac
+vocal/*.flac
+
+# 系统文件
+.DS_Store
+Thumbs.db

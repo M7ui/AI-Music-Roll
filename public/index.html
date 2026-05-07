@@ -35,6 +35,17 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
 #chat-msgs .u{color:#88aaff;font-weight:bold}#chat-msgs .ut{color:#ccccff}
 #chat-msgs .al{color:var(--note);font-weight:bold}#chat-msgs .at{color:var(--txt)}
 #chat-msgs .tt{color:var(--txtd);font-size:11px;font-style:italic}#chat-msgs .et{color:var(--err)}#chat-msgs .st{color:#555578;font-size:11px}
+#chat-msgs .think{display:flex;align-items:center;gap:4px;color:var(--acc);padding:6px 0}
+#chat-msgs .think .dot{width:5px;height:5px;border-radius:50%;background:var(--acc);animation:thinkBounce 1.2s infinite ease-in-out}
+#chat-msgs .think .dot:nth-child(1){animation-delay:0s}
+#chat-msgs .think .dot:nth-child(2){animation-delay:.15s}
+#chat-msgs .think .dot:nth-child(3){animation-delay:.3s}
+@keyframes thinkBounce{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-6px);opacity:1}}
+#chat-msgs .reasoning{margin:4px 0;border:1px solid #1a1a4a;border-radius:4px;overflow:hidden}
+#chat-msgs .reasoning summary{cursor:pointer;padding:4px 8px;background:#0e0e28;color:#7777aa;font-size:11px;user-select:none}
+#chat-msgs .reasoning summary:hover{color:var(--acc)}
+#chat-msgs .reasoning .rc{max-height:160px;overflow-y:auto;padding:4px 8px;font-size:11px;color:#666699;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+#chat-msgs .reasoning-stream{padding:4px 8px;font-size:11px;color:#666699;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto}
 #chat-input-wrap{display:flex;padding:8px 10px;gap:6px;border-top:1px solid #1a1a3a}
 #chat-input{flex:1;background:var(--inp-bg);color:var(--txt);border:1px solid #2a2a4a;border-radius:3px;padding:7px 10px;font-family:Consolas,monospace;font-size:12px;outline:none}
 #chat-input:focus{border-color:var(--acc)}
@@ -82,6 +93,11 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
   <button class="btn-stop" id="btn-stop">■ 停止</button>
   <button class="btn-midi" id="btn-midi">⬇ MIDI</button>
   <button class="btn-clear" id="btn-clear">✕ 清除</button>
+  <span class="sep">│</span>
+  <label>音量:</label>
+  <input id="vol-slider" type="range" min="0" max="100" value="80" style="width:70px;accent-color:var(--acc)">
+  <span class="sep">│</span>
+  <span id="key-display" style="color:var(--note);font-size:11px;white-space:nowrap">C Major · 4/4</span>
   <span style="flex:1"></span>
   <span id="sound-badge">🎵 默认音色</span>
   <button class="btn-config" id="btn-config">⚙ 配置</button>
@@ -95,11 +111,12 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
     </div>
   </div>
   <div id="chat-panel">
-    <div id="chat-title">🎵 AI 作曲助手</div>
+    <div id="chat-title">🎵 AI 作曲助手 <button id="btn-new-chat" style="float:right;background:#2a2a4a;color:var(--txtd);border:1px solid #3a3a5a;border-radius:3px;font-size:10px;padding:2px 8px;cursor:pointer;font-family:Consolas,monospace">新对话</button></div>
     <div id="chat-msgs"></div>
     <div id="chat-input-wrap">
       <input id="chat-input" placeholder="告诉 AI 你想创作什么音乐…" autocomplete="off">
       <button id="chat-send">发送</button>
+      <button id="chat-stop" style="display:none;background:#aa4444;color:#fff;border:none;border-radius:3px;padding:7px 12px;cursor:pointer;font-family:Consolas,monospace;font-size:11px;font-weight:bold">⏹ 停止</button>
     </div>
   </div>
 </div>
@@ -235,6 +252,13 @@ let dragStartPitch = 0;
 let lastDragX = 0;
 let lastDragY = 0;
 let dragraf = null;
+let isResizing = false;
+let resizeNote = null;
+let currentKey = { root: 60, scale: 'major' };
+let currentTimeSignature = { num: 4, den: 4 };
+let notesHistory = [];
+let abortController = null;
+let masterGainNode = null;
 
 const $ = id => document.getElementById(id);
 const keysCv = $('keys-canvas');
@@ -361,9 +385,13 @@ function paintAll() {
     const g = Math.floor(100+112*t);
     const bv = Math.floor(80+90*t);
     const isDraggingNote = isDragging && dragNote && n.pitch === dragNote.pitch && Math.abs(n.start_beat - dragNote.start_beat) < 0.001;
+    const isResizingNote = isResizing && resizeNote && n.pitch === resizeNote.pitch && Math.abs(n.start_beat - resizeNote.start_beat) < 0.001;
     if (isDraggingNote) {
       gctx.fillStyle = '#ffff44';
       gctx.strokeStyle = '#ffffff';
+    } else if (isResizingNote) {
+      gctx.fillStyle = `rgb(0,${g},${bv})`;
+      gctx.strokeStyle = '#ff44ff';
     } else {
       gctx.fillStyle = `rgb(0,${g},${bv})`;
       gctx.strokeStyle = '#00aa88';
@@ -386,12 +414,30 @@ function findAt(pitch, beat) {
   return notes.find(n => n.pitch===pitch && beat>=n.start_beat && beat<n.start_beat+n.duration);
 }
 
+function findAtRightEdge(pitch, beat, px, cellW) {
+  const threshold = Math.max(4, cellW * 0.4);
+  for (const n of notes) {
+    if (n.pitch !== pitch) continue;
+    if (beat >= n.start_beat && beat <= n.start_beat + n.duration) {
+      const rightEdgeBeat = n.start_beat + n.duration;
+      const rightEdgeX = rightEdgeBeat * SUBDIV * cellW;
+      const clickX = beat * SUBDIV * cellW;
+      if (Math.abs(clickX - rightEdgeX) <= threshold) {
+        return n;
+      }
+    }
+  }
+  return null;
+}
+
 function addNote(pitch, start, dur, vel) {
+  pushHistory();
   notes = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
   notes.push({pitch, start_beat:start, duration:dur, velocity:vel||velDefault});
 }
 
 function rmNote(pitch, start) {
+  pushHistory();
   notes = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
 }
 
@@ -404,6 +450,15 @@ gridCv.addEventListener('mousedown', e => {
   const res = pitchBeatFromXY(e.clientX-rect.left+scrollX, e.clientY-rect.top+scrollY);
   if (!res) return;
   const snapB = Math.round(res.beat/0.25)*0.25;
+  const resizeTarget = findAtRightEdge(res.pitch, res.beat, e.clientX-rect.left+scrollX, CELL_W);
+  if (resizeTarget) {
+    pushHistory();
+    isResizing = true;
+    resizeNote = resizeTarget;
+    gridCv.style.cursor = 'ew-resize';
+    e.preventDefault();
+    return;
+  }
   const ex = findAt(res.pitch, snapB);
   if (ex) {
     isDragging = true;
@@ -431,7 +486,21 @@ gridCv.addEventListener('mousemove', e => {
   if (res) {
     const nm = NOTE_NAMES[res.pitch%12]+(Math.floor(res.pitch/12)-1);
     statusEl.textContent = `${nm} (MIDI ${res.pitch})  |  Beat ${res.beat.toFixed(2)}  |  Notes: ${notes.length}`;
-    if (isDragging && dragNote) {
+    if (isResizing && resizeNote) {
+      if (Math.abs(e.clientX - lastDragX) > 2) {
+        let newDur = Math.max(0.25, res.beat - resizeNote.start_beat);
+        newDur = Math.round(newDur / 0.25) * 0.25;
+        if (Math.abs(newDur - resizeNote.duration) > 0.001) {
+          resizeNote.duration = newDur;
+          lastDragX = e.clientX;
+          if (dragraf) cancelAnimationFrame(dragraf);
+          dragraf = requestAnimationFrame(() => {
+            paintAll();
+            statusEl.textContent = `调整时值: ${nm} (MIDI ${res.pitch})  |  长度 ${newDur.toFixed(2)}`;
+          });
+        }
+      }
+    } else if (isDragging && dragNote) {
       if (Math.abs(e.clientX - lastDragX) > 3 || Math.abs(e.clientY - lastDragY) > 3) {
         const deltaX = e.clientX - dragStartX;
         const deltaBeat = deltaX / (SUBDIV * CELL_W);
@@ -456,6 +525,9 @@ gridCv.addEventListener('mousemove', e => {
           });
         }
       }
+    } else if (!isDragging && !isResizing) {
+      const hov = findAtRightEdge(res.pitch, res.beat, e.clientX-rect.left+scrollX, CELL_W);
+      gridCv.style.cursor = hov ? 'ew-resize' : 'crosshair';
     }
   } else { updateStatus(); }
 });
@@ -467,12 +539,24 @@ gridCv.addEventListener('mouseup', e => {
     gridCv.style.cursor = 'crosshair';
     paintAll(); updateStatus();
   }
+  if (isResizing && resizeNote) {
+    isResizing = false;
+    resizeNote = null;
+    gridCv.style.cursor = 'crosshair';
+    paintAll(); updateStatus();
+  }
 });
 
 gridCv.addEventListener('mouseleave', e => {
   if (isDragging && dragNote) {
     isDragging = false;
     dragNote = null;
+    gridCv.style.cursor = 'crosshair';
+    paintAll(); updateStatus();
+  }
+  if (isResizing && resizeNote) {
+    isResizing = false;
+    resizeNote = null;
     gridCv.style.cursor = 'crosshair';
     paintAll(); updateStatus();
   }
@@ -500,6 +584,28 @@ function updateStatus() {
   statusEl.textContent = `Notes: ${notes.length}  |  BPM: ${bpm}  |  小节: ${bars}  |  音效: ${soundPackName || '默认音色'}`;
 }
 
+function updateKeyDisplay() {
+  const r = currentKey.root % 12;
+  const o = Math.floor(currentKey.root / 12) - 1;
+  const scaleNames = {
+    major:'Major', minor:'Minor', pentatonic_major:'Pentatonic Major',
+    pentatonic_minor:'Pentatonic Minor', blues:'Blues', dorian:'Dorian', mixolydian:'Mixolydian'
+  };
+  const kn = NOTE_NAMES[r] + o + ' ' + (scaleNames[currentKey.scale] || currentKey.scale);
+  $('key-display').textContent = kn + ' · ' + currentTimeSignature.num + '/' + currentTimeSignature.den;
+}
+
+function pushHistory() {
+  notesHistory.push(notes.map(n => ({...n})));
+  if (notesHistory.length > 50) notesHistory.shift();
+}
+
+function undo() {
+  if (notesHistory.length === 0) return;
+  notes = notesHistory.pop();
+  paintAll(); updateStatus();
+}
+
 // ═══ Sound Pack ═══════════════════════════════════════════════
 async function loadSoundPack() {
   try {
@@ -508,11 +614,13 @@ async function loadSoundPack() {
     const json = await resp.json();
     const files = json.files || [];
     if (files.length === 0) throw new Error('未找到支持的音频文件 (WAV/MP3/OGG/M4A/AAC/FLAC)');
+    ensureAudio();
     const buffers = {};
     for (const file of files) {
       const fresp = await fetch('/vocal/' + encodeURIComponent(file));
       const buf = await fresp.arrayBuffer();
-      buffers[file] = buf;
+      const decoded = await audioCtx.decodeAudioData(buf);
+      buffers[file] = decoded;
     }
     soundPack = buffers;
     const ext = files.length === 1 ? '.' + files[0].split('.').pop().toLowerCase() : '';
@@ -530,7 +638,12 @@ async function loadSoundPack() {
 }
 
 function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    masterGainNode = audioCtx.createGain();
+    masterGainNode.gain.value = 0.8;
+    masterGainNode.connect(audioCtx.destination);
+  }
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
@@ -553,7 +666,7 @@ function playSynth(pitch, startTime, duration, vel) {
   const v = vel/127;
   gain.gain.setValueAtTime(v*0.25, startTime);
   gain.gain.exponentialRampToValueAtTime(0.001, startTime+duration*0.85);
-  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.connect(gain); gain.connect(masterGainNode||audioCtx.destination);
   osc.start(startTime); osc.stop(startTime+duration);
   scheduledOscs.push(osc);
 }
@@ -564,23 +677,21 @@ function playSample(pitch, startTime, duration, vel) {
   const pitchRatio = Math.pow(2, semitonesFromC4 / 12);
   const v = (vel/127) * 0.8;
 
-  for (const [filename, buf] of Object.entries(soundPack)) {
-    audioCtx.decodeAudioData(buf, (decoded) => {
-      const src = audioCtx.createBufferSource();
-      src.buffer = decoded;
-      src.playbackRate.value = pitchRatio;
+  const keys = Object.keys(soundPack);
+  if (keys.length === 0) return;
+  const decoded = soundPack[keys[0]];
+  const src = audioCtx.createBufferSource();
+  src.buffer = decoded;
+  src.playbackRate.value = pitchRatio;
 
-      const gainNode = audioCtx.createGain();
-      gainNode.gain.setValueAtTime(v, startTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + Math.min(duration * 0.85, decoded.duration * 0.9));
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(v, startTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + Math.min(duration * 0.85, decoded.duration * 0.9));
 
-      src.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      src.start(startTime);
-      scheduledOscs.push(src);
-    });
-    break;
-  }
+  src.connect(gainNode);
+  gainNode.connect(masterGainNode||audioCtx.destination);
+  src.start(startTime);
+  scheduledOscs.push(src);
 }
 
 function stopAllAudio() {
@@ -617,18 +728,28 @@ function buildMidi() {
   evts.push(...encodeVarLen(0));
   evts.push(0xc0, 0);
   
-  const sorted = notes.slice().sort((a,b)=>a.start_beat-b.start_beat||a.pitch-b.pitch);
-  let lastTick = 0;
-  for (const n of sorted) {
+  const events = [];
+  for (const n of notes) {
     const tick = Math.round(n.start_beat * tpqn);
-    const delta = tick - lastTick;
-    lastTick = tick;
     const dur = Math.round(n.duration * tpqn);
     const vel = n.velocity || DEF_VEL;
+    events.push({ tick, type: 'on', pitch: n.pitch, vel });
+    events.push({ tick: tick + dur, type: 'off', pitch: n.pitch, vel: 0 });
+  }
+  events.sort((a, b) => a.tick - b.tick);
+  
+  let lastTick = 0;
+  let runningStatus = -1;
+  for (const e of events) {
+    const delta = e.tick - lastTick;
+    lastTick = e.tick;
     evts.push(...encodeVarLen(delta));
-    evts.push(0x90, n.pitch, vel);
-    evts.push(...encodeVarLen(dur));
-    evts.push(0x80, n.pitch, 0);
+    const statusByte = e.type === 'on' ? 0x90 : 0x80;
+    if (runningStatus !== statusByte) {
+      evts.push(statusByte);
+      runningStatus = statusByte;
+    }
+    evts.push(e.pitch, e.vel);
   }
   
   evts.push(...encodeVarLen(0));
@@ -654,6 +775,7 @@ function buildMidi() {
 }
 
 function encodeVarLen(val) {
+  if (val < 0) val = 0;
   const b = [];
   b.push(val & 0x7f); val >>= 7;
   while (val) { b.push((val & 0x7f) | 0x80); val >>= 7; }
@@ -693,17 +815,17 @@ function animatePlayhead() {
   if (beat > total) { playing = false; paintAll(); updateStatus(); return; }
   paintAll();
   const gctx = gridCv.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
   const x = beat * SUBDIV * CELL_W;
-  const sx = (x - gridWrap.scrollLeft) * dpr;
-  gctx.strokeStyle = '#ff2255'; gctx.lineWidth = 2 * dpr;
-  gctx.beginPath(); gctx.moveTo(sx, HDR_H*dpr); gctx.lineTo(sx, (HDR_H+N_P*CELL_H)*dpr); gctx.stroke();
+  const sx = x - gridWrap.scrollLeft;
+  gctx.strokeStyle = '#ff2255'; gctx.lineWidth = 2;
+  gctx.beginPath(); gctx.moveTo(sx, HDR_H); gctx.lineTo(sx, HDR_H+N_P*CELL_H); gctx.stroke();
   gctx.lineWidth = 1;
   playAnimId = requestAnimationFrame(animatePlayhead);
 }
 
 $('btn-clear').addEventListener('click', () => {
   if (!notes.length || !confirm('清除所有音符？')) return;
+  pushHistory();
   notes = []; paintAll(); updateStatus();
 });
 
@@ -711,12 +833,48 @@ bpmInp.addEventListener('change', () => { bpm = parseInt(bpmInp.value)||120; upd
 velSlider.addEventListener('input', () => { velDefault = parseInt(velSlider.value); velLabel.textContent = velDefault; });
 velSlider.addEventListener('change', () => { velDefault = parseInt(velSlider.value); });
 
+$('vol-slider').addEventListener('input', () => {
+  const vol = parseInt($('vol-slider').value) / 100;
+  if (masterGainNode) masterGainNode.gain.value = vol;
+});
+
 // ═══ Chat ════════════════════════════════════════════════════
 function chatAppend(cls, text) {
   const div = document.createElement('div');
   div.className = cls; div.textContent = text;
   chatMsgs.appendChild(div);
   chatMsgs.scrollTop = chatMsgs.scrollHeight;
+}
+
+let thinkingDiv = null;
+
+function showThinking() {
+  hideThinking();
+  thinkingDiv = document.createElement('div');
+  thinkingDiv.className = 'think';
+  thinkingDiv.innerHTML = '<span style="font-size:12px;margin-right:2px">AI 思考中</span><span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  chatMsgs.appendChild(thinkingDiv);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
+}
+
+function hideThinking() {
+  if (thinkingDiv && thinkingDiv.parentNode) {
+    thinkingDiv.parentNode.removeChild(thinkingDiv);
+  }
+  thinkingDiv = null;
+}
+
+function finalizeReasoning(reasoningDiv, reasoningContent) {
+  if (!reasoningDiv || !reasoningDiv.parentNode) return;
+  if (!reasoningContent) { reasoningDiv.parentNode.removeChild(reasoningDiv); return; }
+  const details = document.createElement('details');
+  details.className = 'reasoning';
+  details.innerHTML = '<summary>💭 思考过程</summary><div class="rc">' + escapeHtml(reasoningContent) + '</div>';
+  reasoningDiv.parentNode.replaceChild(details, reasoningDiv);
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 async function chatSendMsg() {
@@ -729,48 +887,164 @@ async function chatSendMsg() {
   messages.push({role:'user',content:txt});
   busy = true;
   chatSend.disabled = true;
+  $('chat-stop').style.display = 'inline-block';
   statusEl.textContent = 'AI 正在思考…';
+  showThinking();
+  abortController = new AbortController();
+  let iterations = 0;
+  const MAX_ITER = 20;
 
   try {
-    while (true) {
-      const body = {model: loadCfgModel(), messages, tools:TOOLS};
+    while (iterations < MAX_ITER) {
+      iterations++;
+
+      const body = {model: loadCfgModel(), messages, tools:TOOLS, stream: true};
       const resp = await fetch('/api/chat', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: abortController.signal
       });
+
       if (!resp.ok) {
         const e = await resp.json().catch(()=>({}));
         throw new Error(e.error||`HTTP ${resp.status}`);
       }
-      const data = await resp.json();
-      const msg = data.choices[0].message;
-      messages.push(msg);
 
-      if (msg.tool_calls) {
-        for (const tc of msg.tool_calls) {
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuf = '';
+      let streamError = null;
+      let toolCallsMsg = null;
+      let aiContent = '';
+      let aiDiv = null;
+      let reasoningContent = '';
+      let reasoningDiv = null;
+      let streamDone = false;
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) { streamDone = true; break; }
+
+        sseBuf += decoder.decode(value, { stream: true });
+        const lines = sseBuf.split('\n');
+        sseBuf = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            switch (evt.type) {
+            case 'text':
+              if (!aiDiv) {
+                hideThinking();
+                chatAppend('al', '\nAI:');
+                aiDiv = document.createElement('div');
+                aiDiv.className = 'at';
+                chatMsgs.appendChild(aiDiv);
+              }
+              aiContent += evt.content;
+              aiDiv.textContent = aiContent;
+              chatMsgs.scrollTop = chatMsgs.scrollHeight;
+              break;
+            case 'tool_calls':
+              toolCallsMsg = evt.message;
+              break;
+            case 'reasoning':
+              if (!reasoningDiv) {
+                hideThinking();
+                const wrap = document.createElement('div');
+                wrap.className = 'reasoning-stream';
+                wrap.textContent = '';
+                chatMsgs.appendChild(wrap);
+                reasoningDiv = wrap;
+              }
+              reasoningContent += evt.content;
+              reasoningDiv.textContent = reasoningContent;
+              chatMsgs.scrollTop = chatMsgs.scrollHeight;
+              break;
+            case 'reasoning_done':
+              reasoningContent = evt.content;
+              break;
+            case 'done':
+              streamDone = true;
+              break;
+            case 'error':
+              streamError = new Error(evt.message);
+              streamDone = true;
+              break;
+            }
+          } catch(e) { /* skip incomplete JSON */ }
+        }
+      }
+
+      if (streamError) throw streamError;
+
+      if (toolCallsMsg) {
+        messages.push(toolCallsMsg);
+        for (const tc of toolCallsMsg.tool_calls) {
           const fn = tc.function.name;
           const args = JSON.parse(tc.function.arguments);
           const res = execTool(fn, args);
           chatAppend('tt', `  ⚙ ${fn}(${JSON.stringify(args).slice(0,80)})`);
           messages.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(res)});
         }
+        finalizeReasoning(reasoningDiv, reasoningContent);
+        showThinking();
+        statusEl.textContent = 'AI 正在思考…';
         continue;
       }
-      const c = msg.content||'';
-      if (c) { chatAppend('al', '\nAI:'); chatAppend('at', c); }
+
+      finalizeReasoning(reasoningDiv, reasoningContent);
+      if (aiContent) {
+        const am = {role:'assistant',content:aiContent};
+        if (reasoningContent) am.reasoning_content = reasoningContent;
+        messages.push(am);
+      } else if (reasoningContent) {
+        messages.push({role:'assistant',content:'',reasoning_content:reasoningContent});
+      }
       break;
     }
+
+    if (iterations >= MAX_ITER) {
+      chatAppend('et', '\n⚠ 达到最大迭代次数（' + MAX_ITER + '），对话已终止');
+    }
   } catch(e) {
-    chatAppend('et', '\n⚠ '+e.message);
+    if (e.name === 'AbortError') {
+      chatAppend('tt', '\n⏹ 已停止生成');
+    } else {
+      chatAppend('et', '\n⚠ '+e.message);
+    }
   } finally {
+    hideThinking();
     busy = false;
     chatSend.disabled = false;
+    $('chat-stop').style.display = 'none';
+    abortController = null;
     paintAll(); updateStatus();
   }
 }
 
 chatSend.addEventListener('click', chatSendMsg);
 chatInput.addEventListener('keydown', e => { if (e.key==='Enter') chatSendMsg(); });
+
+$('chat-stop').addEventListener('click', () => {
+  if (abortController) { abortController.abort(); }
+});
+
+$('btn-new-chat').addEventListener('click', () => {
+  messages = [{role:'system',content:buildSystemPrompt()}];
+  chatMsgs.innerHTML = '';
+  chatAppend('st', '🎹  新对话已开始');
+  chatAppend('st', '—————————');
+  statusEl.textContent = '新对话已就绪';
+});
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
+  if (e.key === 'Delete' && !playing) {
+    if (notes.length && confirm('删除所有音符？')) { pushHistory(); notes = []; paintAll(); updateStatus(); }
+  }
+});
 
 // ═══ Tool Execution ══════════════════════════════════════════
 function execTool(name, args) {
@@ -794,6 +1068,7 @@ function execTool(name, args) {
       paintAll(); return {ok: notes.length<b4};
     }
     case 'clear_all':
+      pushHistory();
       notes=[]; paintAll(); return {ok:true};
     case 'get_notes':
       return {notes, count:notes.length};
@@ -802,8 +1077,12 @@ function execTool(name, args) {
       bpmInp.value=bpm; updateStatus();
       return {ok:true, bpm};
     case 'set_key':
+      currentKey = { root: args.root_note, scale: args.scale_type };
+      updateKeyDisplay();
       return {ok:true, key:NOTE_NAMES[args.root_note%12]+' '+args.scale_type};
     case 'set_time_signature':
+      currentTimeSignature = { num: args.numerator, den: args.denominator };
+      updateKeyDisplay();
       return {ok:true, ts:args.numerator+'/'+args.denominator};
     default: return {error:'unknown tool'};
     }
@@ -929,6 +1208,7 @@ modalOverlay.addEventListener('click', e => {
   messages = [{role:'system',content:buildSystemPrompt()}];
   paintAll();
   updateStatus();
+  updateKeyDisplay();
   loadSoundPack();
 })();
 </script>
