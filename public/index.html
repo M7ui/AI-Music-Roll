@@ -22,7 +22,7 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
 #vel-slider{width:80px;accent-color:var(--acc)}
 #toolbar button{padding:5px 12px;border:none;border-radius:3px;font-family:Consolas,monospace;font-size:11px;font-weight:bold;cursor:pointer;color:#fff}
 #toolbar button:hover{filter:brightness(1.2)}
-.btn-play{background:#22aa66}.btn-stop{background:#aa4444}.btn-clear{background:#884488}.btn-config{background:var(--acc)}.btn-midi{background:#2a4a8a}
+.btn-play{background:#22aa66}.btn-stop{background:#aa4444}.btn-clear{background:#884488}.btn-config{background:var(--acc)}.btn-midi{background:#2a4a8a}.btn-save{background:#2a8a6a}.btn-clear-saved{background:#884444}
 .sep{color:var(--txtd);margin:0 2px}
 #main{display:flex;flex:1;min-height:0}
 #roll-panel{flex:1;display:flex;min-width:0;position:relative}
@@ -31,6 +31,12 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
 #grid-canvas{display:block;cursor:crosshair}
 #chat-panel{width:380px;background:var(--chat-bg);display:flex;flex-direction:column;flex-shrink:0;border-left:1px solid #1a1a3a}
 #chat-title{padding:12px 14px 6px;font-size:13px;font-weight:bold;color:var(--acc)}
+#notes-panel{width:280px;background:#0a0a1e;display:flex;flex-direction:column;flex-shrink:0;border-left:1px solid #1a1a3a}
+#notes-title{padding:10px 12px;font-size:12px;font-weight:bold;color:#7c6cf7;border-bottom:1px solid #1a1a3a}
+#notes-list{flex:1;overflow-y:auto;padding:6px;font-size:11px;line-height:1.4}
+#notes-panel .btn-export{width:100%;padding:5px;background:#2a4a8a;color:#fff;border:none;border-radius:3px;font-size:10px;cursor:pointer;margin-bottom:3px}
+#notes-panel .btn-export:hover{filter:brightness(1.2)}
+#notes-panel .btn-import{width:100%;padding:5px;background:#4a4a2a;color:#fff;border:none;border-radius:3px;font-size:10px;cursor:pointer}
 #chat-msgs{flex:1;overflow-y:auto;padding:6px 12px;font-size:12px;line-height:1.6}
 #chat-msgs .u{color:#88aaff;font-weight:bold}#chat-msgs .ut{color:#ccccff}
 #chat-msgs .al{color:var(--note);font-weight:bold}#chat-msgs .at{color:var(--txt)}
@@ -106,6 +112,9 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
   <button class="btn-midi" id="btn-midi">⬇ MIDI</button>
   <button class="btn-clear" id="btn-clear">✕ 清除</button>
   <span class="sep">│</span>
+  <button class="btn-save" id="btn-save">💾 保存</button>
+  <button class="btn-clear-saved" id="btn-clear-saved">🗑️ 清除记录</button>
+  <span class="sep">│</span>
   <label>音量:</label>
   <input id="vol-slider" type="range" min="0" max="100" value="80" style="width:70px;accent-color:var(--acc)">
   <span class="sep">│</span>
@@ -120,6 +129,18 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
     <canvas id="keys-canvas"></canvas>
     <div id="grid-wrap">
       <canvas id="grid-canvas"></canvas>
+    </div>
+  </div>
+  <div id="notes-panel">
+    <div id="notes-title">🎼 音符列表 <span style="float:right;color:#666;font-weight:normal">共 0 个</span></div>
+    <div id="notes-list"></div>
+    <div style="padding:6px;border-top:1px solid #1a1a3a">
+      <button id="btn-export-text" class="btn-export">📝 导出文本格式</button>
+      <button id="btn-export-json" class="btn-export">📦 导出 JSON</button>
+      <label style="display:block;margin-top:4px">
+        <button id="btn-import-json" class="btn-import" onclick="$('import-file').click()">📥 导入 JSON</button>
+        <input id="import-file" type="file" accept=".json" style="display:none">
+      </label>
     </div>
   </div>
   <div id="chat-panel">
@@ -189,16 +210,89 @@ PIANO ROLL SPECS: MIDI note range displayed: 36 (C2) – 83 (B6). Recommended me
 TOOLS (always prefer add_notes for batches):
 add_note(pitch, start_beat, duration, velocity=100) — pitch 36-83, start_beat float, duration 0.25/0.5/1/2/4
 add_notes(notes) — batch: [{pitch, start_beat, duration, velocity?}, …]
-remove_note(pitch, start_beat)
-clear_all()
-get_notes() — returns current note list
+remove_note(pitch, start_beat) — delete a note by pitch & exact start_beat
+update_note(pitch, start_beat, new_pitch?, new_start_beat?, new_duration?, new_velocity?) — modify existing note
+clear_all() — remove everything
+get_notes() — returns current note list [{pitch, start_beat, duration, velocity}, …]
+get_state() — returns {bpm, key:{root, scale, name}, time_signature:{num,den}, note_count}
 set_tempo(bpm) — 40-300
 set_key(root_note, scale_type) — root_note: MIDI num; scale_type: major|minor|pentatonic_major|pentatonic_minor|blues|dorian|mixolydian
 set_time_signature(numerator, denominator)
 
 NOTE → MIDI QUICK REF: C4=60 (middle C). Each octave +12. C=0 C#=1 D=2 D#=3 E=4 F=5 F#=6 G=7 G#=8 A=9 A#=10 B=11. C3=48 D3=50 E3=52 F3=53 G3=55 A3=57 B3=59. C4=60 D4=62 E4=64 F4=65 G4=67 A4=69 B4=71. C5=72 D5=74 E5=76 F5=77 G5=79 A5=81 B5=83.
 
-RULES: Use add_notes for batches; pitch 36-83; snap 0.25-beat grid. Same-pitch notes must not overlap in time. Always explain what you wrote and the musical reasoning in Chinese.`;
+═══════════════════════════════════════
+CRITICAL COMPOSITION RULES — OBEY STRICTLY
+═══════════════════════════════════════
+
+🔴 RULE 1 — RESTS & SILENCE ARE MANDATORY
+NEVER make all notes connected back-to-back (no legato-only melodies). Silence IS a note.
+- Every melodic phrase (2-4 beats) MUST end with at least 0.25–0.5 beat of silence before the next phrase.
+- Use start_beat gaps: if note A ends at beat 2.0, next note should start at 2.25 or 2.5, NOT at 2.0.
+- Longer phrases (4+ beats) need a 0.5–1.0 beat rest after them for "breathing."
+- Short staccato-like notes: use duration 0.25 with 0.25 gap after (0.5 total slot), creating crisp articulation.
+- Slow/emotional passages: longer gaps between phrases (0.5–1.0 beat rest) to create spaciousness.
+
+🔴 RULE 2 — RHYTHMIC VARIETY (NEVER monotonous)
+Every 4-bar section MUST mix at least 3 different note durations from {0.25, 0.5, 0.75, 1.0, 1.5, 2.0}.
+Pattern to avoid: ████░░░░ (all quarter notes) — this sounds mechanical and rushed.
+Good patterns mix short and long: 0.25 0.25 0.5 ░░ 1.0 0.5 0.25 0.25
+Use dotted rhythms (0.75 beat) for swing feel: long-short-long-short.
+Syncopation: place notes on off-beats (beat 0.5, 1.5, 2.5, 3.5) mixed with on-beat notes.
+
+🔴 RULE 3 — VELOCITY DYNAMICS (expression is everything)
+velocity range is 1-127. NEVER use same velocity for all notes.
+- Main melody notes: velocity 80-110
+- Passing/decoration notes: velocity 50-70
+- Ghost notes (light filler): velocity 25-45
+- Accent/emphasis notes (beat 1, climax): velocity 110-127
+- Soft intro/outro notes: velocity 60-80
+- Crescendo: velocity gradually increases across 2-4 notes (60→75→90→105)
+- Each phrase should have a dynamic shape (crescendo or decrescendo), not flat.
+
+🔴 RULE 4 — PHRASE STRUCTURE (call & response)
+Each section MUST have clearly separated phrases, like sentences in a paragraph:
+- Phrase A (question): 2-4 bars, rising contour, ends on non-tonic note (2, 4, 5, 7 scale degree) → REST 0.5 beat
+- Phrase B (answer): 2-4 bars, falling contour, resolves to tonic (1, 3 scale degree) → REST 0.5 beat
+- Phrase C (development): variation of A with different rhythm or register → REST
+- Phrase D (conclusion): final resolution → REST
+
+🔴 RULE 5 — DENSITY CONTROL
+Music must "breathe" — not all bars equally full:
+- Bar 1-2: moderate density (4-8 notes)
+- Bar 3-4: higher density (6-12 notes, climax area)
+- Bar 5-6: lower density (2-5 notes, released tension)
+- Bar 7-8: resolution (1-4 notes, calm ending)
+NOT: every bar has 8 notes (this sounds suffocating).
+
+🔴 RULE 6 — HARMONY & COUNTERPOINT
+- Chord tones (1,3,5) go on strong beats (beat 1, 3 in 4/4)
+- Non-chord tones (2,4,6,7) as passing notes on weak beats or off-beats
+- Avoid parallel octaves/fifths in polyphonic writing
+- Use contrary motion between bass and melody for richness
+
+🔴 RULE 7 — STYLE-SPECIFIC ADAPTATION
+- Ballad/Slow: duration 1.0-2.0 dominant, velocity soft (60-90), large rests (0.5-1.0 beat gaps)
+- Pop: duration 0.5-1.0 mixed, velocity balanced (70-100), moderate rests (0.25-0.5 beat)
+- EDM/House: duration 0.25-0.5 dominant on bass, melody uses 0.5-1.0, tight rests
+- Jazz: use swing (0.75 beat dotted), syncopation-heavy, velocity varied
+- Classical: strict phrasing, clear cadences, 1.0 beat rests between phrases
+
+🔴 RULE 0 — PRE-GENERATION WORKFLOW (do BEFORE calling add_notes)
+Follow this mandatory sequence when the user asks you to write music:
+1. IF you haven't checked the current state yet → call get_state() to learn BPM/key/time_signature
+2. IF the user wants to modify/add to existing notes → call get_notes() to see what's already on the canvas
+3. NEVER add notes blindly — always know the current state first
+4. When the user says "change that last phrase" or "make it slower" → use update_note() to edit existing notes instead of deleting and re-adding
+5. When the user says "make the melody softer" → use update_note() to lower velocity, NOT remove+add
+
+Before generating ANY notes, mentally plan:
+1. "Where are my rests?" (at least every 2 bars)
+2. "What is my dynamic shape?" (velocity curve per phrase)
+3. "What is my density pattern?" (varied across bars)
+4. "What is my rhythmic variety?" (at least 3 durations per section)
+
+Always explain what you wrote and the musical reasoning in Chinese.`;
 
 let techniquesContent = '';
 
@@ -239,9 +333,20 @@ const TOOLS = [
     parameters:{type:"object",properties:{
       pitch:{type:"integer"},start_beat:{type:"number"}},
       required:["pitch","start_beat"]}}},
+  {type:"function",function:{name:"update_note",description:"Modify an existing note's pitch, start_beat, duration or velocity. Provide pitch+start_beat to identify the note, then any of new_pitch/new_start_beat/new_duration/new_velocity to change",
+    parameters:{type:"object",properties:{
+      pitch:{type:"integer",description:"Current MIDI of the note to update, 36-83"},
+      start_beat:{type:"number",description:"Current start_beat of the note to update"},
+      new_pitch:{type:"integer",description:"New MIDI (optional)"},
+      new_start_beat:{type:"number",description:"New start_beat (optional)"},
+      new_duration:{type:"number",description:"New duration (optional)"},
+      new_velocity:{type:"integer",description:"New velocity 1-127 (optional)"}},
+      required:["pitch","start_beat"]}}},
   {type:"function",function:{name:"clear_all",description:"Remove all notes",
     parameters:{type:"object",properties:{}}}},
-  {type:"function",function:{name:"get_notes",description:"List all current notes",
+  {type:"function",function:{name:"get_notes",description:"List all current notes on the piano roll",
+    parameters:{type:"object",properties:{}}}},
+  {type:"function",function:{name:"get_state",description:"Read current BPM, musical key, time signature and note count",
     parameters:{type:"object",properties:{}}}},
   {type:"function",function:{name:"set_tempo",description:"Set BPM (40-300)",
     parameters:{type:"object",properties:{bpm:{type:"number"}},required:["bpm"]}}},
@@ -285,6 +390,108 @@ let currentTimeSignature = { num: 4, den: 4 };
 let notesHistory = [];
 let abortController = null;
 let masterGainNode = null;
+
+const STORAGE_KEY_CHAT = 'ai_piano_roll_chat';
+const STORAGE_KEY_NOTES = 'ai_piano_roll_notes';
+
+function saveChatHistory() {
+  try {
+    const data = { messages: messages, timestamp: Date.now() };
+    localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(data));
+  } catch(e) { console.warn('保存对话失败:', e); }
+}
+
+function loadChatHistory() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_CHAT);
+    if (stored) {
+      const data = JSON.parse(stored);
+      if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+        messages = data.messages;
+        renderChatHistory();
+        return true;
+      }
+    }
+  } catch(e) { console.warn('加载对话失败:', e); }
+  return false;
+}
+
+function renderChatHistory() {
+  chatMsgs.innerHTML = '';
+  for (const msg of messages) {
+    if (msg.role === 'system') continue;
+    if (msg.role === 'user') {
+      chatAppend('u', '\nYou:');
+      chatAppend('ut', msg.content);
+    } else if (msg.role === 'assistant') {
+      chatAppend('al', '\nAI:');
+      chatAppend('at', msg.content || '(工具调用)');
+      if (msg.tool_calls) {
+        for (const tc of msg.tool_calls) {
+          chatAppend('tt', '  ⚙ ' + tc.function.name);
+        }
+      }
+    }
+  }
+  chatAppend('st', '—————————');
+}
+
+function saveNotesData() {
+  try {
+    localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify({
+      notes: notes, bpm: bpm, key: currentKey,
+      timeSignature: currentTimeSignature, timestamp: Date.now()
+    }));
+  } catch(e) { console.warn('保存音符失败:', e); }
+}
+
+function loadNotesData() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_NOTES);
+    if (stored) {
+      const data = JSON.parse(stored);
+      if (Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
+        notes = data.notes;
+        bpm = data.bpm || 120;
+        bpmInp.value = bpm;
+        currentKey = data.key || { root: 60, scale: 'major' };
+        currentTimeSignature = data.timeSignature || { num: 4, den: 4 };
+        paintAll();
+        updateStatus();
+        updateKeyDisplay();
+        return true;
+      }
+    }
+  } catch(e) { console.warn('加载音符失败:', e); }
+  return false;
+}
+
+let saveTimer = null;
+function startAutoSave() {
+  saveTimer = setInterval(() => {
+    if (messages.length > 1) saveChatHistory();
+    if (notes.length > 0) saveNotesData();
+  }, 30000);
+}
+
+function handleManualSave() {
+  saveChatHistory();
+  saveNotesData();
+  statusEl.textContent = '✓ 已保存';
+  setTimeout(() => updateStatus(), 2000);
+}
+
+function clearSavedData() {
+  if (!confirm('确定要清除所有保存的内容吗？')) return;
+  localStorage.removeItem(STORAGE_KEY_CHAT);
+  localStorage.removeItem(STORAGE_KEY_NOTES);
+  messages = [{role:'system',content:buildSystemPrompt()}];
+  notes = [];
+  chatMsgs.innerHTML = '';
+  paintAll();
+  updateStatus();
+  chatAppend('st', '🎹 新对话已开始');
+}
 
 const $ = id => document.getElementById(id);
 const keysCv = $('keys-canvas');
@@ -425,6 +632,7 @@ function paintAll() {
     gctx.fillRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
     gctx.strokeRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
   }
+  updateNotesList();
 }
 
 const toolbar = document.getElementById('toolbar');
@@ -458,6 +666,10 @@ function findAtRightEdge(pitch, beat, px, cellW) {
 
 function addNote(pitch, start, dur, vel) {
   pushHistory();
+  _addNoteRaw(pitch, start, dur, vel);
+}
+
+function _addNoteRaw(pitch, start, dur, vel) {
   notes = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
   notes.push({pitch, start_beat:start, duration:dur, velocity:vel||velDefault});
 }
@@ -723,6 +935,114 @@ function playSample(pitch, startTime, duration, vel) {
 function stopAllAudio() {
   try { for (const o of scheduledOscs) { try { o.stop(); } catch(e){} } } catch(e){}
   scheduledOscs = [];
+}
+
+function updateNotesList() {
+  const listEl = $('notes-list');
+  if (!listEl) return;
+  if (notes.length === 0) {
+    listEl.innerHTML = '<div style="color:#444;padding:8px">暂无音符</div>';
+    updateNotesTitle();
+    return;
+  }
+  const sorted = [...notes].sort((a, b) => {
+    if (a.start_beat !== b.start_beat) return a.start_beat - b.start_beat;
+    return b.pitch - a.pitch;
+  });
+  let html = '';
+  for (const n of sorted) {
+    const noteName = NOTE_NAMES[n.pitch % 12] + (Math.floor(n.pitch / 12) - 1);
+    const vel = n.velocity || DEF_VEL;
+    html += '<div style="padding:3px 6px;border-bottom:1px solid #111130;display:flex;justify-content:space-between">' +
+      '<span style="color:#00d4aa">' + noteName + '</span>' +
+      '<span style="color:#666">' + n.start_beat.toFixed(2) + '</span>' +
+      '<span style="color:#7c6cf7">' + n.duration.toFixed(2) + '</span>' +
+      '<span style="color:#ff9966">' + vel + '</span>' +
+      '</div>';
+  }
+  listEl.innerHTML = html;
+  updateNotesTitle();
+}
+
+function updateNotesTitle() {
+  const titleEl = $('notes-title');
+  if (titleEl) {
+    titleEl.innerHTML = '🎼 音符列表 <span style="float:right;color:#666;font-weight:normal">共 ' + notes.length + ' 个</span>';
+  }
+}
+
+function exportNotesText() {
+  if (notes.length === 0) { alert('没有音符可导出'); return; }
+  let text = 'AI Piano Roll - 音符导出\n================================\n\n';
+  text += '基本信息:\n';
+  text += '  BPM: ' + bpm + '\n';
+  text += '  调式: ' + NOTE_NAMES[currentKey.root % 12] + ' ' + currentKey.scale + '\n';
+  text += '  拍号: ' + currentTimeSignature.num + '/' + currentTimeSignature.den + '\n';
+  text += '  音符数量: ' + notes.length + '\n\n';
+  text += '音符列表:\n--------------------------------\n';
+  text += '音高\t起始拍\t时值\t力度\n';
+  const sorted = [...notes].sort((a, b) => {
+    if (a.start_beat !== b.start_beat) return a.start_beat - b.start_beat;
+    return b.pitch - a.pitch;
+  });
+  for (const n of sorted) {
+    const noteName = NOTE_NAMES[n.pitch % 12] + (Math.floor(n.pitch / 12) - 1);
+    text += noteName + '\t' + n.start_beat.toFixed(2) + '\t' + n.duration.toFixed(2) + '\t' + (n.velocity || DEF_VEL) + '\n';
+  }
+  const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ai-piano-roll-notes-' + new Date().toISOString().split('T')[0] + '.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  statusEl.textContent = '✓ 音符已导出为文本';
+  setTimeout(() => updateStatus(), 2000);
+}
+
+function exportNotesJson() {
+  if (notes.length === 0) { alert('没有音符可导出'); return; }
+  const data = {
+    version: '1.0',
+    exportTime: new Date().toISOString(),
+    bpm: bpm,
+    key: currentKey,
+    timeSignature: currentTimeSignature,
+    notes: notes
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ai-piano-roll-' + new Date().toISOString().split('T')[0] + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  statusEl.textContent = '✓ 音符已导出为 JSON';
+  setTimeout(() => updateStatus(), 2000);
+}
+
+function importNotesJson(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.notes) {
+        pushHistory();
+        notes = data.notes;
+        if (data.bpm) { bpm = data.bpm; bpmInp.value = bpm; }
+        if (data.key) currentKey = data.key;
+        if (data.timeSignature) currentTimeSignature = data.timeSignature;
+        paintAll();
+        updateStatus();
+        updateKeyDisplay();
+        statusEl.textContent = '✓ 已导入音符';
+      }
+    } catch(err) { alert('导入失败: ' + err.message); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 // ═══ MIDI Download ════════════════════════════════════════════
@@ -1018,9 +1338,10 @@ function execTool(name, args) {
       return {ok:true, note:NOTE_NAMES[p%12]+(Math.floor(p/12)-1), beat:s, dur:d};
     }
     case 'add_notes': {
+      pushHistory();
       let c=0;
       for (const nt of args.notes) {
-        addNote(nt.pitch, nt.start_beat, nt.duration, nt.velocity); c++;
+        _addNoteRaw(nt.pitch, nt.start_beat, nt.duration, nt.velocity); c++;
       }
       paintAll(); return {ok:true, count:c};
     }
@@ -1029,11 +1350,29 @@ function execTool(name, args) {
       rmNote(args.pitch, args.start_beat);
       paintAll(); return {ok: notes.length<b4};
     }
+    case 'update_note': {
+      const idx = notes.findIndex(n => n.pitch===args.pitch && Math.abs(n.start_beat-args.start_beat)<0.001);
+      if (idx === -1) return {error:'note not found'};
+      pushHistory();
+      if (args.new_pitch !== undefined) notes[idx].pitch = args.new_pitch;
+      if (args.new_start_beat !== undefined) notes[idx].start_beat = args.new_start_beat;
+      if (args.new_duration !== undefined) notes[idx].duration = args.new_duration;
+      if (args.new_velocity !== undefined) notes[idx].velocity = args.new_velocity;
+      paintAll();
+      return {ok:true, updated:NOTE_NAMES[notes[idx].pitch%12]+(Math.floor(notes[idx].pitch/12)-1)};
+    }
     case 'clear_all':
       pushHistory();
       notes=[]; paintAll(); return {ok:true};
     case 'get_notes':
       return {notes, count:notes.length};
+    case 'get_state':
+      return {
+        bpm, tempo:bpm,
+        key:{root:currentKey.root, scale:currentKey.scale, name:NOTE_NAMES[currentKey.root%12]+' '+currentKey.scale},
+        time_signature:{numerator:currentTimeSignature.num, denominator:currentTimeSignature.den},
+        note_count:notes.length
+      };
     case 'set_tempo':
       bpm=Math.max(40,Math.min(300,args.bpm));
       bpmInp.value=bpm; updateStatus();
@@ -1050,19 +1389,6 @@ function execTool(name, args) {
     }
   } catch(e) { return {error:e.message}; }
 }
-
-// ═══ Welcome ═════════════════════════════════════════════════
-chatAppend('st', '🎹  欢迎使用 AI Piano Roll！');
-chatAppend('st', '');
-chatAppend('st', '在下方输入框告诉 AI 你想创作什么音乐，例如：');
-chatAppend('st', '  · "写一段 C 大调的流行旋律"');
-chatAppend('st', '  · "创作 Am 小调的爵士和弦进行"');
-chatAppend('st', '  · "来一段 12 小节布鲁斯"');
-chatAppend('st', '');
-chatAppend('st', '也可点击左侧网格手动添加音符（左键添加/切换，右键删除）。');
-chatAppend('st', '—————————');
-chatAppend('st', '💡 音效包提示：将音频文件放入 /vocal/ 目录');
-chatAppend('st', '   支持格式：WAV、MP3、OGG、M4A、AAC、FLAC');
 
 // ═══ Config ══════════════════════════════════════════════════
 function loadCfgModel() {
@@ -1167,7 +1493,43 @@ modalOverlay.addEventListener('click', e => {
 // ═══ Init ════════════════════════════════════════════════════
 (async function init() {
   await loadTechniques();
-  messages = [{role:'system',content:buildSystemPrompt()}];
+
+  const hasChat = loadChatHistory();
+  const hasNotes = loadNotesData();
+
+  if (!hasChat) {
+    messages = [{role:'system',content:buildSystemPrompt()}];
+  }
+
+  if (!hasChat && !hasNotes) {
+    chatAppend('st', '🎹  欢迎使用 AI Piano Roll！');
+    chatAppend('st', '');
+    chatAppend('st', '在下方输入框告诉 AI 你想创作什么音乐，例如：');
+    chatAppend('st', '  · "写一段 C 大调的流行旋律"');
+    chatAppend('st', '  · "创作 Am 小调的爵士和弦进行"');
+    chatAppend('st', '  · "来一段 12 小节布鲁斯"');
+    chatAppend('st', '');
+    chatAppend('st', '也可点击左侧网格手动添加音符（左键添加/切换，右键删除）。');
+    chatAppend('st', '—————————');
+    chatAppend('st', '💡 音效包提示：将音频文件放入 /vocal/ 目录');
+    chatAppend('st', '   支持格式：WAV、MP3、OGG、M4A、AAC、FLAC');
+  } else {
+    chatAppend('st', '📋 已恢复上次会话');
+  }
+
+  $('btn-save').addEventListener('click', handleManualSave);
+  $('btn-clear-saved').addEventListener('click', clearSavedData);
+  $('btn-export-text').addEventListener('click', exportNotesText);
+  $('btn-export-json').addEventListener('click', exportNotesJson);
+  $('import-file').addEventListener('change', importNotesJson);
+
+  startAutoSave();
+
+  window.addEventListener('beforeunload', () => {
+    saveChatHistory();
+    saveNotesData();
+  });
+
   paintAll();
   updateStatus();
   updateKeyDisplay();
