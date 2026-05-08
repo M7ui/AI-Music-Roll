@@ -72,6 +72,18 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
 #cfg-feedback.ok{color:var(--note)}#cfg-feedback.err{color:var(--err)}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--txtd);border-radius:3px}
 #sound-badge{display:inline-block;background:#1a3a2a;color:#44cc88;font-size:10px;padding:2px 6px;border-radius:3px;margin-left:4px;vertical-align:middle}
+#term-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;flex-direction:column;font-family:Consolas,monospace}
+#term-overlay.active{display:flex}
+#term-header{background:#0a0a24;padding:6px 14px;font-size:11px;color:var(--acc);border-bottom:1px solid #1a1a4a;display:flex;align-items:center;gap:10px}
+#term-header span{color:var(--txtd)}
+#term-close{background:none;border:1px solid #3a3a5a;color:var(--txtd);border-radius:3px;cursor:pointer;padding:2px 8px;font-family:Consolas,monospace;font-size:10px;margin-left:auto}
+#term-close:hover{color:var(--err);border-color:var(--err)}
+#term-output{flex:1;overflow-y:auto;padding:8px 14px;font-size:11px;line-height:1.4;white-space:pre-wrap;word-break:break-all}
+#term-output .cmd{color:#55dd77}#term-output .err{color:var(--err)}#term-output .info{color:var(--acc)}#term-output .time{color:var(--txtd)}
+#term-input-wrap{display:flex;border-top:1px solid #1a1a4a}
+#term-prompt{color:#55dd77;padding:8px 0 8px 14px;font-size:12px;flex-shrink:0}
+#term-input{flex:1;background:transparent;border:none;color:var(--txt);padding:8px 8px 8px 0;font-family:Consolas,monospace;font-size:12px;outline:none}
+#term-input::placeholder{color:#333355}
 </style>
 </head>
 <body>
@@ -143,6 +155,20 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
       <button class="cancel" id="cfg-cancel">取消</button>
       <button class="ok" id="cfg-save">保存</button>
     </div>
+  </div>
+</div>
+
+<div id="term-overlay">
+  <div id="term-header">
+    <span>⬛</span> AMR Terminal
+    <span>|</span>
+    <span id="term-status">按 ESC 关闭 · ~ 切换</span>
+    <button id="term-close">✕ ESC</button>
+  </div>
+  <div id="term-output"></div>
+  <div id="term-input-wrap">
+    <span id="term-prompt">&gt; </span>
+    <input id="term-input" placeholder="输入 amr state / amr terminal / amr api …" autocomplete="off">
   </div>
 </div>
 
@@ -700,86 +726,29 @@ function stopAllAudio() {
 }
 
 // ═══ MIDI Download ════════════════════════════════════════════
-function downloadMidi() {
+async function downloadMidi() {
   if (!notes.length) { alert('没有音符可导出'); return; }
-  const midi = buildMidi();
-  const blob = new Blob([midi], {type:'audio/midi'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'ai-piano-roll.mid'; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function buildMidi() {
-  const tpqn = 480;
-  const usPerQ = Math.round(60000000 / bpm);
-  const evts = [];
-  
-  evts.push(...encodeVarLen(0));
-  evts.push(0xff, 0x03, 14);
-  const trackName = 'AI Piano Roll';
-  for (let i = 0; i < trackName.length; i++) {
-    evts.push(trackName.charCodeAt(i));
-  }
-  
-  evts.push(...encodeVarLen(0));
-  evts.push(0xff, 0x51, 0x03, (usPerQ>>16)&0xff, (usPerQ>>8)&0xff, usPerQ&0xff);
-  
-  evts.push(...encodeVarLen(0));
-  evts.push(0xc0, 0);
-  
-  const events = [];
-  for (const n of notes) {
-    const tick = Math.round(n.start_beat * tpqn);
-    const dur = Math.round(n.duration * tpqn);
-    const vel = n.velocity || DEF_VEL;
-    events.push({ tick, type: 'on', pitch: n.pitch, vel });
-    events.push({ tick: tick + dur, type: 'off', pitch: n.pitch, vel: 0 });
-  }
-  events.sort((a, b) => a.tick - b.tick);
-  
-  let lastTick = 0;
-  let runningStatus = -1;
-  for (const e of events) {
-    const delta = e.tick - lastTick;
-    lastTick = e.tick;
-    evts.push(...encodeVarLen(delta));
-    const statusByte = e.type === 'on' ? 0x90 : 0x80;
-    if (runningStatus !== statusByte) {
-      evts.push(statusByte);
-      runningStatus = statusByte;
+  try {
+    const resp = await fetch('/api/midi', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ notes, bpm })
+    });
+    if (!resp.ok) {
+      const e = await resp.json().catch(()=>({}));
+      throw new Error(e.error||`HTTP ${resp.status}`);
     }
-    evts.push(e.pitch, e.vel);
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ai-piano-roll.mid';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    statusEl.textContent = 'MIDI 已导出';
+  } catch(e) {
+    alert('MIDI 导出失败: ' + e.message);
   }
-  
-  evts.push(...encodeVarLen(0));
-  evts.push(0xff, 0x2f, 0x00);
-  
-  const trackData = new Uint8Array(evts);
-  const track = new Uint8Array([
-    0x4d, 0x54, 0x72, 0x6b,
-    (trackData.length>>>24)&0xff, (trackData.length>>>16)&0xff,
-    (trackData.length>>>8)&0xff, trackData.length&0xff,
-    ...trackData
-  ]);
-  
-  const header = new Uint8Array([
-    0x4d, 0x54, 0x68, 0x64,
-    0, 0, 0, 6,
-    0, 0,
-    0, 1,
-    0, tpqn>>>8, tpqn&0xff
-  ]);
-  
-  return new Uint8Array([...header, ...track]);
-}
-
-function encodeVarLen(val) {
-  if (val < 0) val = 0;
-  const b = [];
-  b.push(val & 0x7f); val >>= 7;
-  while (val) { b.push((val & 0x7f) | 0x80); val >>= 7; }
-  return b.reverse();
 }
 
 $('btn-midi').addEventListener('click', downloadMidi);
@@ -1039,13 +1008,6 @@ $('btn-new-chat').addEventListener('click', () => {
   statusEl.textContent = '新对话已就绪';
 });
 
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
-  if (e.key === 'Delete' && !playing) {
-    if (notes.length && confirm('删除所有音符？')) { pushHistory(); notes = []; paintAll(); updateStatus(); }
-  }
-});
-
 // ═══ Tool Execution ══════════════════════════════════════════
 function execTool(name, args) {
   try {
@@ -1211,6 +1173,150 @@ modalOverlay.addEventListener('click', e => {
   updateKeyDisplay();
   loadSoundPack();
 })();
+
+// ═══ AMR Terminal ═════════════════════════════════════════════
+const termOverlay = $('term-overlay');
+const termOutput = $('term-output');
+const termInput = $('term-input');
+const termClose = $('term-close');
+const termStatus = $('term-status');
+let termOpen = false;
+
+function termPrint(cls, text) {
+  const div = document.createElement('div');
+  div.className = cls || '';
+  div.textContent = text;
+  termOutput.appendChild(div);
+  termOutput.scrollTop = termOutput.scrollHeight;
+}
+
+function termHTML(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  termOutput.appendChild(div);
+  termOutput.scrollTop = termOutput.scrollHeight;
+}
+
+function openTerminal() {
+  if (termOpen) return;
+  termOpen = true;
+  termOverlay.classList.add('active');
+  termInput.value = '';
+  termInput.focus();
+  termStatus.textContent = 'AMR Terminal 就绪';
+  if (!termOutput.textContent) {
+    termPrint('info', 'AMR Terminal v1.0 — 输入 amr help 查看命令');
+    termPrint('', '');
+  }
+}
+
+function closeTerminal() {
+  termOpen = false;
+  termOverlay.classList.remove('active');
+}
+
+async function execTermCmd(raw) {
+  const cmd = raw.trim();
+  if (!cmd) return;
+  termPrint('cmd', '> ' + cmd);
+  termStatus.textContent = '执行中…';
+
+  try {
+    if (cmd === 'clear' || cmd === 'cls') {
+      termOutput.innerHTML = '';
+      termStatus.textContent = 'AMR Terminal 就绪';
+    }
+    else if (cmd === 'help' || cmd === 'amr help' || cmd === '?') {
+      termPrint('info', '可用命令:');
+      termPrint('', '  amr state     — 查看服务运行状态、内存、MIDI 服务');
+      termPrint('', '  amr terminal  — 查看服务器最近日志');
+      termPrint('', '  amr api       — 查看所有 API 接口');
+      termPrint('', '  clear / cls   — 清屏');
+      termPrint('', '  help          — 帮助');
+      termStatus.textContent = '就绪';
+    }
+    else if (cmd === 'amr state') {
+      const resp = await fetch('/api/state');
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error);
+      termPrint('info', '═'.repeat(40));
+      termPrint('info', '  Server');
+      termPrint('',     `    Status:    ${data.server.status}`);
+      termPrint('',     `    Uptime:    ${data.server.uptime}`);
+      termPrint('',     `    Port:      ${data.server.port}`);
+      termPrint('',     `    Node:      ${data.server.node}`);
+      termPrint('',     `    Platform:  ${data.server.platform} (${data.server.arch})`);
+      termPrint('info', '  Memory');
+      termPrint('',     `    RSS:       ${data.memory.rss}`);
+      termPrint('',     `    HeapUsed:  ${data.memory.heapUsed} / ${data.memory.heapTotal}`);
+      termPrint('info', '  MIDI Service');
+      termPrint('',     `    Status:    ${data.midi.status} (${data.midi.generator})`);
+      termPrint('info', '  Config');
+      termPrint('',     `    Provider:  ${data.config.provider || '—'}`);
+      termPrint('',     `    Model:     ${data.config.model || '—'}`);
+      termPrint('',     `    Logs:      ${data.logs}`);
+      termStatus.textContent = '状态检查完成';
+    }
+    else if (cmd === 'amr terminal') {
+      const resp = await fetch('/api/terminal?n=30');
+      const logs = await resp.json();
+      if (!resp.ok) throw new Error(logs.error);
+      for (const l of logs) {
+        const time = l.time.slice(11, 19);
+        const cls = l.level === 'error' ? 'err' : l.level === 'info' ? 'info' : 'time';
+        termPrint(cls, `[${time}] ${l.msg}`);
+      }
+      if (logs.length === 0) termPrint('', '(无日志)');
+      termStatus.textContent = `${logs.length} 条日志`;
+    }
+    else if (cmd === 'amr api') {
+      const resp = await fetch('/api/api');
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error);
+      termPrint('info', `API 接口列表 (${data.endpoints.length}):`);
+      termPrint('info', '═'.repeat(60));
+      for (const ep of data.endpoints) {
+        const streamTag = ep.stream ? ' 🔄' : '';
+        const bodyTag = ep.body ? ` (body:${ep.body})` : '';
+        termPrint('',  `  ${ep.method.padEnd(6)} ${ep.path.padEnd(18)} ${ep.desc}${streamTag}${bodyTag}`);
+      }
+      termStatus.textContent = `${data.endpoints.length} 个接口`;
+    }
+    else {
+      termPrint('err', `未知命令: ${cmd}，输入 help 查看帮助`);
+      termStatus.textContent = '命令未识别';
+    }
+  } catch(e) {
+    termPrint('err', '错误: ' + e.message);
+    termStatus.textContent = '错误';
+  }
+}
+
+termInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    execTermCmd(termInput.value);
+    termInput.value = '';
+  }
+  if (e.key === 'Escape') closeTerminal();
+});
+
+termClose.addEventListener('click', closeTerminal);
+
+document.addEventListener('keydown', e => {
+  if ((e.key === '`' || e.key === '~') && !e.ctrlKey && !e.metaKey) {
+    const tag = document.activeElement?.tagName;
+    const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable;
+    if (!isInput || document.activeElement === termInput) {
+      e.preventDefault();
+      if (termOpen) closeTerminal(); else openTerminal();
+      return;
+    }
+  }
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
+  if (e.key === 'Delete' && !playing) {
+    if (notes.length && confirm('删除所有音符？')) { pushHistory(); notes = []; paintAll(); updateStatus(); }
+  }
+});
 </script>
 </body>
 </html>
