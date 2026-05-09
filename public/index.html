@@ -25,7 +25,7 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
 .btn-play{background:#22aa66}.btn-stop{background:#aa4444}.btn-clear{background:#884488}.btn-config{background:var(--acc)}.btn-midi{background:#2a4a8a}.btn-save{background:#2a8a6a}.btn-clear-saved{background:#884444}
 .sep{color:var(--txtd);margin:0 2px}
 #main{display:flex;flex:1;min-height:0}
-#roll-panel{flex:1;display:flex;min-width:0;position:relative}
+#roll-panel{flex:1;display:flex;min-width:0;position:relative;overflow:hidden}
 #keys-canvas{background:var(--kb-bg);flex-shrink:0}
 #grid-wrap{flex:1;overflow:auto;position:relative}
 #grid-canvas{display:block;cursor:crosshair}
@@ -196,7 +196,7 @@ body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;overfl
 <script>
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_KEYS = new Set([1,3,6,8,10]);
-const MIN_P = 36, MAX_P = 84, N_P = MAX_P - MIN_P;
+const MIN_P = 36, MAX_P = 97, N_P = MAX_P - MIN_P;
 const KEY_W = 56, HDR_H = 22;
 const BPB = 4, DEF_BARS = 8, DEF_VEL = 100;
 const SUBDIV = 4;
@@ -205,10 +205,10 @@ let CELL_H, CELL_W;
 
 const SYSTEM_PROMPT_BASE = `You are a professional music composition AI assistant embedded in a piano-roll editor. Help users create melodies, chord progressions, bass lines and arrangements by calling tools. You MUST respond in Chinese unless the user writes in another language.
 
-PIANO ROLL SPECS: MIDI note range displayed: 36 (C2) – 83 (B6). Recommended melodic range: 48–79. Time is measured in beats (quarter-notes). Grid resolution: 0.25 beat (16th note). Default tempo 120 BPM, time-signature 4/4, velocity 100 (range 1-127).
+PIANO ROLL SPECS: MIDI note range displayed: 36 (C2) – 96 (C7). Recommended melodic range: 48–84. Time is measured in beats (quarter-notes). Grid resolution: 0.25 beat (16th note). Default tempo 120 BPM, time-signature 4/4, velocity 100 (range 1-127).
 
 TOOLS (always prefer add_notes for batches):
-add_note(pitch, start_beat, duration, velocity=100) — pitch 36-83, start_beat float, duration 0.25/0.5/1/2/4
+add_note(pitch, start_beat, duration, velocity=100) — pitch 36-96, start_beat float, duration 0.25/0.5/1/2/4
 add_notes(notes) — batch: [{pitch, start_beat, duration, velocity?}, …]
 remove_note(pitch, start_beat) — delete a note by pitch & exact start_beat
 update_note(pitch, start_beat, new_pitch?, new_start_beat?, new_duration?, new_velocity?) — modify existing note
@@ -219,7 +219,7 @@ set_tempo(bpm) — 40-300
 set_key(root_note, scale_type) — root_note: MIDI num; scale_type: major|minor|pentatonic_major|pentatonic_minor|blues|dorian|mixolydian
 set_time_signature(numerator, denominator)
 
-NOTE → MIDI QUICK REF: C4=60 (middle C). Each octave +12. C=0 C#=1 D=2 D#=3 E=4 F=5 F#=6 G=7 G#=8 A=9 A#=10 B=11. C3=48 D3=50 E3=52 F3=53 G3=55 A3=57 B3=59. C4=60 D4=62 E4=64 F4=65 G4=67 A4=69 B4=71. C5=72 D5=74 E5=76 F5=77 G5=79 A5=81 B5=83.
+NOTE → MIDI QUICK REF: C4=60 (middle C). Each octave +12. C=0 C#=1 D=2 D#=3 E=4 F=5 F#=6 G=7 G#=8 A=9 A#=10 B=11. C2=36 C3=48 D3=50 E3=52 F3=53 G3=55 A3=57 B3=59. C4=60 D4=62 E4=64 F4=65 G4=67 A4=69 B4=71. C5=72 D5=74 E5=76 F5=77 G5=79 A5=81 B5=83. C6=84 D6=86 E6=88 F6=89 G6=91 A6=93 B6=95. C7=96.
 
 ═══════════════════════════════════════
 CRITICAL COMPOSITION RULES — OBEY STRICTLY
@@ -317,7 +317,7 @@ function buildSystemPrompt() {
 const TOOLS = [
   {type:"function",function:{name:"add_note",description:"Add a single note to the piano roll",
     parameters:{type:"object",properties:{
-      pitch:{type:"integer",description:"MIDI 36-83"},
+      pitch:{type:"integer",description:"MIDI 36-96"},
       start_beat:{type:"number",description:"Start beat (0-based, 0.25 increments)"},
       duration:{type:"number",description:"0.25/0.5/1/2/4 beats"},
       velocity:{type:"integer",description:"1-127, default 100"}},
@@ -335,9 +335,9 @@ const TOOLS = [
       required:["pitch","start_beat"]}}},
   {type:"function",function:{name:"update_note",description:"Modify an existing note's pitch, start_beat, duration or velocity. Provide pitch+start_beat to identify the note, then any of new_pitch/new_start_beat/new_duration/new_velocity to change",
     parameters:{type:"object",properties:{
-      pitch:{type:"integer",description:"Current MIDI of the note to update, 36-83"},
+      pitch:{type:"integer",description:"Current MIDI of the note to update, 36-96"},
       start_beat:{type:"number",description:"Current start_beat of the note to update"},
-      new_pitch:{type:"integer",description:"New MIDI (optional)"},
+      new_pitch:{type:"integer",description:"New MIDI 36-96 (optional)"},
       new_start_beat:{type:"number",description:"New start_beat (optional)"},
       new_duration:{type:"number",description:"New duration (optional)"},
       new_velocity:{type:"integer",description:"New velocity 1-127 (optional)"}},
@@ -513,7 +513,7 @@ function calcCellSize() {
   const availW = gridWrap.clientWidth || 800;
   const availH = window.innerHeight - toolbar.offsetHeight - statusEl.offsetHeight - 4;
   
-  const minCellH = 10;
+  const minCellH = 14;
   const minCellW = 8;
   const maxCellW = 32;
   
