@@ -1,16 +1,16 @@
-# Tropical House Music Production Guide
+# Kygo Style Tropical House Production Guide
 
-> **Focus:** Bright, uplifting tropical vibes with steel drums, marimbas, and catchy melodies in the style of Kygo, Pegato, and Thomas Jack.
+> **Focus:** Bright, uplifting tropical vibes with steel drums, marimbas, and catchy melodies in the style of Kygo.
 
 ---
 
 ## Core Characteristics of Tropical House
 
 ### Key Elements
-- **Tempo:** 100-115 BPM (kygo typically around 108-112)
-- **Key:** Major keys (C, G, D, A major are most common)
+- **Tempo:** 108-112 BPM (Kygo typically around 108)
+- **Key:** Major keys (G, C, D major are most common)
 - **Mood:** Happy, uplifting, summery, carefree
-- **Structure:** Verse → Pre-Chorus → Chorus → Drop → Breakdown → Chorus
+- **Structure:** Intro → Verse → Pre-Chorus → Chorus → Drop → Breakdown → Build-up → Drop → Outro
 
 ### Signature Sounds
 - Steel drums / Steelpan
@@ -25,19 +25,31 @@
 ## Kygo-Inspired Chord Progressions
 
 ### Classic Kygo Progressions
-1. **I-V-vi-IV with a twist:** C-G-Am-F (but with extended chords)
-2. **vi-IV-I-V:** Am-F-C-G (used in "Firestone")
-3. **I-bVII-IV-I:** C-Bb-F-C (tropical flavor)
-4. **IV-vi-I-V:** F-Am-C-G (bright and uplifting)
+1. **I-V-vi-IV with a twist:** Gmaj9 - D/F# - Em7 - Cmaj9
+2. **vi-IV-I-V:** Em7 - Cmaj9 - Gmaj9 - Dsus4→D (used in "Firestone")
+3. **I-bVII-IV-I:** G - F - C - G (tropical Mixolydian flavor)
+4. **IV-vi-I-V:** Cmaj9 - Em7 - Gmaj9 - Dsus4
 
-### Chord Voicings
-- Use 7th and 9th chords for richness
-- Add suspended chords (sus2, sus4) for dreamy feel
-- Light piano arpeggios in the background
+### Chord Voicings (Key of G Major)
+
+| Chord | Bass (根音) | Upper Structure | MIDI Notes |
+|-------|-------------|-----------------|------------|
+| Gmaj9 | G2 (43) | B3-D4-F#4-A4 | 59-62-66-69 |
+| D/F# | F#2 (42) | A3-D4-F#4 | 57-62-66 |
+| Em7 | E2 (40) | G3-B3-D4-F#4 | 55-59-62-66 |
+| Cmaj9 | C3 (48) | E3-G3-B3-D4 | 52-55-59-62 |
+| Am9 | A2 (45) | C3-E3-G3-B3 | 48-52-55-59 |
+| Dsus4 | D3 (50) | G3-A3-D4 | 55-57-62 |
+
+**Voicing Rules:**
+- Omit root note from upper structure (let bass handle root)
+- Use 7th and 9th extensions for richness
+- Common tones between chords stay stationary
+- Chromatic approach for non-common tones
 
 ### Example: Kygo "Stole the Show"
 ```
-Chords: Gmaj7 - D/F# - Em - Cadd9
+Chords: Gmaj9 - D/F# - Em - Cadd9
 Key: G Major
 Feel: Bright, emotional, with steel drums
 ```
@@ -47,20 +59,27 @@ Feel: Bright, emotional, with steel drums
 ## Melody Guidelines
 
 ### Range
-- **Lead melody:** Mid-range (C4-A5)
+- **Lead melody:** Mid-range (B4-A5)
 - **Vocal chops:** Higher register for catchiness
 - **Countermelodies:** Softer, complementary lines
 
-### Contour
-- Gentle rises and falls
-- Avoid large jumps (> an octave)
-- Use stepwise motion with occasional leaps
+### Scale & Contour
+- **Scale:** Major pentatonic (G-A-B-D-E for G major)
+- **Contour:** Gentle rises and falls, arch-shaped
+- **Avoid:** Large jumps (> octave), use stepwise motion
 
 ### Kygo Style Melodies
 - Simple, memorable hooks
 - Call-and-response patterns
 - Extended notes on key chord tones
-- Light, airy feel
+- **Rhythm:** Start on off-beat ("and of 1") for laid-back feel
+- **Motif:** B4→D5→E5 (core ascending three-note pattern)
+
+### Motif Variation Techniques
+- Repeat: Same pitch and rhythm
+- Rhythm change: Same pitches, different rhythm
+- Shift: Transpose 2-3 degrees up/down
+- Extension: Add new notes at the end
 
 ---
 
@@ -75,14 +94,31 @@ Percussion: Shakers, bongos, congas
 ```
 
 ### Bassline
-- Root notes on beats 1 and 3
+- Root notes on beats 1 and 3 (or every quarter note)
 - Light syncopation on off-beats
 - Subtle bass slides between chords
+- **Velocity:** 100-110, stable
 
-### Steel Drum Pattern
-- Off-beat emphasis
-- Light, rhythmic hits
-- Call-and-response with melody
+### Kygo Chop Pattern (Drop Section)
+```
+Beat:     1    &    2    &    3    &    4    &
+Pattern:  .    X    .    X    X    .    .    X
+Velocity: -    90   -    85   100  -    -    78
+Duration: Each stab = ~60 ticks (very short)
+```
+
+### Verse Pattern
+```
+Beat:     1    &    2    &    3    &    4    &
+Pattern:  .    .    X    .    .    .    X    .
+Velocity: -    -    75   -    -    -    70   -
+Duration: Quarter notes
+```
+
+### Build-up Pattern Progression
+1. Stage 1 (2 bars): Verse pattern
+2. Stage 2 (2 bars): Off-beat 8ths (.X.X.X.X.)
+3. Stage 3 (2 bars): 16th note arpeggios, velocity crescendo 80→110
 
 ---
 
@@ -93,12 +129,26 @@ Percussion: Shakers, bongos, congas
 - Filter sweeps (low-pass opening up)
 - Pitched vocal chops increasing in intensity
 - Cymbal swells
+- **Velocity curve:** Steady crescendo
 
-### Drops
-- Full tropical pluck melody
-- Steel drums taking the lead
-- Light bass with sidechain compression
-- Percussion breakdown
+### Drops (Three-Layer Architecture)
+```
+Layer 1: BASS (C2-G3)
+- Notes: Chord roots
+- Rhythm: Quarter or half notes
+- Velocity: 100-110
+
+Layer 2: PIANO CHOP (C4-G5)
+- Notes: Chord upper structure (no root)
+- Rhythm: Kygo Chop pattern
+- Velocity: 78-100
+
+Layer 3: LEAD MELODY (C5-C6)
+- Notes: Pentatonic melody line
+- Rhythm: Contrast with chop (chop rests = melody plays)
+- Velocity: 90-110
+- Timbre: Steel Drum / Marimba / Pluck Synth
+```
 
 ### Breakdowns
 - Stripped back (piano + vocals)
@@ -116,10 +166,10 @@ Percussion: Shakers, bongos, congas
 - Acoustic guitar with reverb
 
 ### Effects Chain
-1. EQ: Brighten highs, warm lows
-2. Reverb: Hall or plate reverb for space
-3. Delay: Slapback or dotted 8th notes
-4. Compression: Gentle glue on master
+1. **EQ:** Brighten highs, warm lows
+2. **Reverb:** Hall or plate reverb for space
+3. **Delay:** Slapback or dotted 8th notes
+4. **Compression:** Gentle glue on master
 
 ### Mix Tips
 - Keep low end clean (sub bass + kick only)
@@ -128,21 +178,46 @@ Percussion: Shakers, bongos, congas
 
 ---
 
-## Song Structure Template
+## Song Structure Template (16 Bar Example)
 
 ```
-Intro: 8 bars (piano + soft pad)
-Verse: 8 bars (vocal + guitar + light percussion)
-Pre-Chorus: 4 bars (build with vocal chops)
-Chorus: 8 bars (full melody + steel drums)
-Drop: 8 bars (tropical pluck + bass)
-Verse 2: 8 bars (variation with added elements)
-Pre-Chorus: 4 bars
-Chorus: 8 bars
-Breakdown: 8 bars (stripped, emotional)
-Build-up: 4 bars
-Drop: 8 bars
-Outro: 8 bars (fade with steel drums)
+Bars 1-4:   Intro - Piano melody only, sparse, vel 60-75
+Bars 5-8:   Verse - Melody + soft chords (half notes), vel 75-90
+Bars 9-12:  Build-up - Increasing density, vel 75→110
+Bars 13-16: Drop - Full three-layer arrangement, vel max
+```
+
+### Complete 16-Bar MIDI Layout (Key: G Major, 108 BPM)
+
+**Bars 1-4: Intro**
+```
+Bar 1:  Rest Rest Rest Rest | Rest B4 Rest D5
+Bar 2:  E5 Rest D5 Rest | B4 Rest Rest Rest
+Bar 3:  Rest Rest Rest Rest | Rest B4 Rest D5
+Bar 4:  E5 Rest D5 Rest | E5 Rest G5 Rest
+```
+
+**Bars 5-8: Verse**
+```
+Chords: Gmaj9 | D/F# | Em7 | Cmaj9
+Bar 5:  Rest B4 D5 Rest | E5 D5 Rest Rest
+Bar 6:  Rest D5 E5 Rest | G5 Rest E5 Rest
+Bar 7:  Rest B4 D5 Rest | E5 D5 Rest Rest
+Bar 8:  Rest B4 A4 Rest | G4 Rest Rest Rest
+```
+
+**Bars 9-12: Build-up**
+```
+Bar 9-10: Off-beat 8ths, melody repeats at higher register
+Bar 11-12: 16th note arpeggios ascending, velocity peaks
+```
+
+**Bars 13-16: Drop**
+```
+Chords: Gmaj9 | D/F# | Em7 | Cmaj9
+Bass:   G2 G2 | F#2 F#2 | E2 E2 | C3 C3
+Chop:   Kygo Chop pattern with chord stabs
+Melody: Contrasts with chop (melody plays where chop rests)
 ```
 
 ---
@@ -151,14 +226,16 @@ Outro: 8 bars (fade with steel drums)
 
 ✅ Bright major key  
 ✅ Steel drums or marimba present  
-✅ 100-115 BPM  
-✅ Catchy vocal chops (optional)  
-✅ Clean mix with wide stereo image  
-✅ Gentle build-ups and satisfying drops  
-✅ Summery, uplifting mood  
+✅ 108-112 BPM  
+✅ Kygo Chop pattern in Drop  
 ✅ Extended chords (7ths, 9ths, sus)  
+✅ Root-bass separation technique  
+✅ Pentatonic melody with off-beat start  
+✅ Three-layer Drop architecture  
+✅ Gentle build-ups with velocity crescendo  
+✅ Space and reverb for tropical feel  
+✅ Common tone voice leading  
 ✅ Light percussion (shakers, bongos)  
-✅ Space and reverb for tropical feel
 
 ---
 
@@ -166,7 +243,6 @@ Outro: 8 bars (fade with steel drums)
 
 - Kygo - Firestone
 - Kygo - Stole the Show
-- Pegato - Alone
 - Thomas Jack - Rivers
 - Lost Frequencies - Are You with Me
 - Felix Jaehn - Ain't Nobody (Loves Me Better)
@@ -175,10 +251,13 @@ Outro: 8 bars (fade with steel drums)
 
 ## Quick Tips for Kygo Vibe
 
-1. Use a bright piano sound with slow arpeggios
+1. Use a bright piano sound with Kygo Chop pattern in Drop
 2. Layer steel drums playing the melody
-3. Add subtle shaker and bongo patterns
-4. Use vocal chops in the pre-chorus build
-5. Keep the bass simple but present
+3. Separate bass root from chord upper structure
+4. Start melody on off-beat for laid-back feel
+5. Use major pentatonic scale for melodies
 6. Add wide reverb to create space
 7. Automate filter cutoff for energy
+8. Keep bass simple but present
+9. Use common tone voice leading between chords
+10. Leave breathing space between musical phrases
