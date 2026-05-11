@@ -10,6 +10,7 @@ const __dir = path.dirname(fileURLToPath(import.meta.url));
 const CFG_FILE = path.join(__dir, '.ai_piano_roll_cfg.json');
 const PUBLIC = path.join(__dir, 'public');
 const VOCAL = path.join(__dir, 'vocal');
+const PROMPTS = path.join(__dir, 'prompts');
 const PORT = 8765;
 const START_TIME = Date.now();
 
@@ -506,14 +507,37 @@ const server = http.createServer(async (req, res) => {
       }));
     }
     else if (req.method === 'GET' && reqUrl.pathname === '/api/techniques') {
-      const techFile = path.join(__dir, 'prompts', 'techniques.md');
+      const promptName = reqUrl.searchParams.get('name') || 'techniques';
+      const promptFile = path.join(PROMPTS, `${promptName}.md`);
       try {
-        const content = fs.readFileSync(techFile, 'utf-8');
+        const content = fs.readFileSync(promptFile, 'utf-8');
         res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end(content);
       } catch(e) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Techniques file not found' }));
+        res.end(JSON.stringify({ error: 'Prompt file not found' }));
+      }
+    }
+    else if (req.method === 'GET' && reqUrl.pathname === '/api/prompts') {
+      try {
+        const files = fs.readdirSync(PROMPTS).filter(x => {
+          const ext = path.extname(x).toLowerCase();
+          return ext === '.md';
+        }).map(x => {
+          const name = path.basename(x, '.md');
+          const stats = fs.statSync(path.join(PROMPTS, x));
+          return {
+            name: name,
+            filename: x,
+            size: stats.size,
+            mtime: stats.mtime.toISOString()
+          };
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ prompts: files }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to read prompts directory' }));
       }
     }
     else if (reqUrl.pathname.startsWith('/vocal/')) {

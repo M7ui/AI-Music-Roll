@@ -99,16 +99,31 @@ Before generating ANY notes, mentally plan:
 Always explain what you wrote and the musical reasoning in Chinese.`;
 
 let techniquesContent = '';
+let currentPromptName = 'techniques';
 
-async function loadTechniques() {
+async function loadTechniques(promptName = currentPromptName) {
   try {
-    const resp = await fetch('/api/techniques');
+    const resp = await fetch(`/api/techniques?name=${encodeURIComponent(promptName)}`);
     if (resp.ok) {
       techniquesContent = await resp.text();
+      currentPromptName = promptName;
     }
   } catch(e) {
     techniquesContent = '';
   }
+}
+
+async function loadPromptList() {
+  try {
+    const resp = await fetch('/api/prompts');
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.prompts || [];
+    }
+  } catch(e) {
+    console.warn('Failed to load prompt list:', e);
+  }
+  return [{ name: 'techniques', filename: 'techniques.md' }];
 }
 
 function buildSystemPrompt() {
@@ -307,7 +322,7 @@ const chatSend = $('chat-send');
 const statusEl = $('status');
 const modalOverlay = $('modal-overlay');
 const bpmInp = $('bpm-inp');
-const durSel = $('dur-sel');
+const durInp = $('dur-inp');
 const velSlider = $('vel-slider');
 const velLabel = $('vel-label');
 const soundBadge = $('sound-badge');
@@ -512,7 +527,7 @@ gridCv.addEventListener('mousedown', e => {
     gridCv.style.cursor = 'grabbing';
     e.preventDefault();
   } else {
-    const dur = parseFloat(durSel.value);
+    const dur = parseFloat(durInp.value);
     addNote(res.pitch, snapB, dur);
     paintAll(); updateStatus();
   }
@@ -1245,6 +1260,18 @@ function loadCfgModel() {
 $('btn-config').addEventListener('click', async () => {
   modalOverlay.classList.add('active');
   $('cfg-feedback').className = ''; $('cfg-feedback').textContent = '';
+  
+  const promptSelect = $('cfg-prompt');
+  promptSelect.innerHTML = '';
+  
+  const prompts = await loadPromptList();
+  for (const p of prompts) {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    opt.textContent = p.name.replace(/-/g, ' ');
+    promptSelect.appendChild(opt);
+  }
+  
   try {
     const resp = await fetch('/api/config');
     const cfg = await resp.json();
@@ -1252,12 +1279,14 @@ $('btn-config').addEventListener('click', async () => {
     $('cfg-url').value = cfg.base_url || 'https://api.openai.com/v1';
     $('cfg-key').value = cfg.api_key || '';
     $('cfg-model').value = cfg.model || 'gpt-4o';
+    promptSelect.value = cfg.prompt || 'techniques';
     updateKeyHint();
   } catch(e) {
     document.querySelector('input[name="cfg-provider"][value="cloud"]').checked = true;
     $('cfg-url').value = 'https://api.openai.com/v1';
     $('cfg-key').value = '';
     $('cfg-model').value = 'gpt-4o';
+    promptSelect.value = 'techniques';
     updateKeyHint();
   }
 });
@@ -1314,6 +1343,7 @@ $('cfg-save').addEventListener('click', async () => {
     base_url: $('cfg-url').value.trim(),
     api_key: $('cfg-key').value.trim(),
     model: $('cfg-model').value.trim(),
+    prompt: $('cfg-prompt').value,
   };
   if (!cfg.base_url) { alert('请输入 Base URL'); return; }
   if (!cfg.model) { alert('请输入模型名称'); return; }
@@ -1324,9 +1354,19 @@ $('cfg-save').addEventListener('click', async () => {
     });
     if (!resp.ok) throw new Error('保存失败');
     localStorage.setItem('ai_piano_cfg', JSON.stringify(cfg));
+    
+    await loadTechniques(cfg.prompt);
+    
     modalOverlay.classList.remove('active');
     messages = [{role:'system',content:buildSystemPrompt()}];
-    statusEl.textContent = '配置已保存';
+    
+    const promptDisplayName = cfg.prompt.replace(/-/g, ' ');
+    chatAppend('st', '—————————');
+    chatAppend('st', `🎵 用户已选择「${promptDisplayName}」创作指南`);
+    chatAppend('st', `🎹 我将以「${promptDisplayName}」风格创作指南来操作`);
+    chatAppend('st', '—————————');
+    
+    statusEl.textContent = '配置已保存，提示词已更新';
   } catch(e) {
     alert('保存配置失败: '+e.message);
   }
@@ -1338,7 +1378,17 @@ modalOverlay.addEventListener('click', e => {
 
 // ═══ Init ════════════════════════════════════════════════════
 (async function init() {
-  await loadTechniques();
+  let promptName = 'techniques';
+  try {
+    const resp = await fetch('/api/config');
+    if (resp.ok) {
+      const cfg = await resp.json();
+      if (cfg.prompt) {
+        promptName = cfg.prompt;
+      }
+    }
+  } catch(e) {}
+  await loadTechniques(promptName);
 
   const hasChat = loadChatHistory();
   const hasNotes = loadNotesData();
@@ -1347,6 +1397,8 @@ modalOverlay.addEventListener('click', e => {
     messages = [{role:'system',content:buildSystemPrompt()}];
   }
 
+  const promptDisplayName = promptName.replace(/-/g, ' ');
+  
   if (!hasChat && !hasNotes) {
     chatAppend('st', '🎹  欢迎使用 AI Piano Roll！');
     chatAppend('st', '');
@@ -1357,10 +1409,12 @@ modalOverlay.addEventListener('click', e => {
     chatAppend('st', '');
     chatAppend('st', '也可点击左侧网格手动添加音符（左键添加/切换，右键删除）。');
     chatAppend('st', '—————————');
+    chatAppend('st', `🎵 当前使用「${promptDisplayName}」创作指南`);
     chatAppend('st', '💡 音效包提示：将音频文件放入 /vocal/ 目录');
     chatAppend('st', '   支持格式：WAV、MP3、OGG、M4A、AAC、FLAC');
   } else {
     chatAppend('st', '📋 已恢复上次会话');
+    chatAppend('st', `🎵 当前使用「${promptDisplayName}」创作指南`);
   }
 
   $('btn-save').addEventListener('click', handleManualSave);
