@@ -1,4 +1,4 @@
-﻿const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_KEYS = new Set([1,3,6,8,10]);
 const MIN_P = 36, MAX_P = 97, N_P = MAX_P - MIN_P;
 const KEY_W = 56, HDR_H = 22;
@@ -363,10 +363,10 @@ function paintAll() {
   gctx.setTransform(dpr,0,0,dpr,0,0);
   kctx.setTransform(dpr,0,0,dpr,0,0);
 
-  gctx.fillStyle = '#0e0e26'; gctx.fillRect(0,0,tw,HDR_H+th);
-  gctx.fillStyle = '#0e0e28'; gctx.fillRect(0,0,tw,HDR_H);
-  kctx.fillStyle = '#10102a'; kctx.fillRect(0,0,KEY_W,HDR_H+th);
-  kctx.fillStyle = '#0e0e28'; kctx.fillRect(0,0,KEY_W,HDR_H);
+  gctx.fillStyle = '#161616'; gctx.fillRect(0,0,tw,HDR_H+th);
+  gctx.fillStyle = '#1a1a1a'; gctx.fillRect(0,0,tw,HDR_H);
+  kctx.fillStyle = '#1a1a1a'; kctx.fillRect(0,0,KEY_W,HDR_H+th);
+  kctx.fillStyle = '#1a1a1a'; kctx.fillRect(0,0,KEY_W,HDR_H);
 
   const fontSize = Math.max(7, Math.min(11, Math.floor(CELL_H * 0.65)));
 
@@ -376,18 +376,18 @@ function paintAll() {
     const s = p % 12;
     const isBlack = BLACK_KEYS.has(s);
     const isC = s === 0;
-    let rowBg = '#0e0e26';
-    if (isC) rowBg = '#161638'; else if (isBlack) rowBg = '#161636';
+    let rowBg = '#161616';
+    if (isC) rowBg = '#1e1e1e'; else if (isBlack) rowBg = '#181818';
     gctx.fillStyle = rowBg; gctx.fillRect(0,y,tw,CELL_H);
-    gctx.strokeStyle = isBlack ? '#222250' : '#111130';
+    gctx.strokeStyle = isBlack ? '#2a2a2a' : '#202020';
     gctx.beginPath(); gctx.moveTo(0,y+CELL_H); gctx.lineTo(tw,y+CELL_H); gctx.stroke();
 
-    let keyBg = '#10102a';
-    if (isC) keyBg = '#161638'; else if (!isBlack) keyBg = '#1c1c3c';
+    let keyBg = '#1a1a1a';
+    if (isC) keyBg = '#1e1e1e'; else if (!isBlack) keyBg = '#202020';
     kctx.fillStyle = keyBg; kctx.fillRect(0,y,KEY_W,CELL_H);
     const nm = NOTE_NAMES[s] + (Math.floor(p/12)-1);
-    kctx.fillStyle = isC ? '#8888bb' : '#555578';
-    kctx.font = `${fontSize}px Consolas`; kctx.textAlign = 'right';
+    kctx.fillStyle = isC ? '#aaaaaa' : '#777777';
+    kctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto`; kctx.textAlign = 'right';
     kctx.fillText(nm, KEY_W-4, y+CELL_H/2+fontSize/3-1);
   }
 
@@ -396,18 +396,18 @@ function paintAll() {
       for (let sub = 0; sub < SUBDIV; sub++) {
         const x = (bar*BPB+beat)*SUBDIV*CELL_W + sub*CELL_W;
         if (sub > 0) {
-          gctx.strokeStyle = '#161636'; gctx.beginPath();
+          gctx.strokeStyle = '#202020'; gctx.beginPath();
           gctx.moveTo(x,HDR_H); gctx.lineTo(x,HDR_H+th); gctx.stroke();
         }
       }
       const xb = (bar*BPB+beat)*SUBDIV*CELL_W;
-      gctx.strokeStyle = '#222250'; gctx.beginPath();
+      gctx.strokeStyle = '#2a2a2a'; gctx.beginPath();
       gctx.moveTo(xb,HDR_H); gctx.lineTo(xb,HDR_H+th); gctx.stroke();
     }
     const xm = bar*BPB*SUBDIV*CELL_W;
-    gctx.strokeStyle = '#3a3a68'; gctx.lineWidth = 1;
+    gctx.strokeStyle = '#333333'; gctx.lineWidth = 1;
     gctx.beginPath(); gctx.moveTo(xm,HDR_H); gctx.lineTo(xm,HDR_H+th); gctx.stroke();
-    gctx.fillStyle = '#666688'; gctx.font = `${Math.max(8,fontSize)}px Consolas`; gctx.textAlign = 'left';
+    gctx.fillStyle = '#777777'; gctx.font = `${Math.max(8,fontSize)}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto`; gctx.textAlign = 'left';
     gctx.fillText(String(bar+1), xm+3, HDR_H/2+fontSize/3);
   }
 
@@ -419,19 +419,18 @@ function paintAll() {
     const x2 = x1 + n.duration * SUBDIV * CELL_W;
     const y2 = y1 + CELL_H - 1;
     const t = (n.velocity||DEF_VEL)/127;
-    const g = Math.floor(100+112*t);
-    const bv = Math.floor(80+90*t);
+    const grayLevel = Math.floor(120 + 135 * t);
     const isDraggingNote = isDragging && dragNote && n.pitch === dragNote.pitch && Math.abs(n.start_beat - dragNote.start_beat) < 0.001;
     const isResizingNote = isResizing && resizeNote && n.pitch === resizeNote.pitch && Math.abs(n.start_beat - resizeNote.start_beat) < 0.001;
     if (isDraggingNote) {
-      gctx.fillStyle = '#ffff44';
-      gctx.strokeStyle = '#ffffff';
+      gctx.fillStyle = '#ffffff';
+      gctx.strokeStyle = '#aaaaaa';
     } else if (isResizingNote) {
-      gctx.fillStyle = `rgb(0,${g},${bv})`;
-      gctx.strokeStyle = '#ff44ff';
+      gctx.fillStyle = `rgb(${grayLevel},${grayLevel},${grayLevel})`;
+      gctx.strokeStyle = '#888888';
     } else {
-      gctx.fillStyle = `rgb(0,${g},${bv})`;
-      gctx.strokeStyle = '#00aa88';
+      gctx.fillStyle = `rgb(${grayLevel},${grayLevel},${grayLevel})`;
+      gctx.strokeStyle = '#666666';
     }
     gctx.fillRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
     gctx.strokeRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
