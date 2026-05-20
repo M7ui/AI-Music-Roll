@@ -1,9 +1,73 @@
-const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+﻿const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_KEYS = new Set([1,3,6,8,10]);
 const MIN_P = 36, MAX_P = 97, N_P = MAX_P - MIN_P;
 const KEY_W = 56, HDR_H = 22;
 const BPB = 4, DEF_BARS = 8, DEF_VEL = 100;
 const SUBDIV = 4;
+
+const SCALE_INTERVALS = {
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  pentatonic_major: [0, 2, 4, 7, 9],
+  pentatonic_minor: [0, 3, 5, 7, 10],
+  blues: [0, 3, 5, 6, 7, 10],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+};
+
+function isInScale(pitch, root, type) {
+  const intervals = SCALE_INTERVALS[type] || SCALE_INTERVALS.major;
+  const rel = ((pitch % 12) - (root % 12) + 12) % 12;
+  return intervals.includes(rel);
+}
+
+function snapToScale(pitch, root, type) {
+  if (isInScale(pitch, root, type)) return pitch;
+  const intervals = SCALE_INTERVALS[type] || SCALE_INTERVALS.major;
+  const rootNote = root % 12;
+  const pitchClass = pitch % 12;
+  const rel = (pitchClass - rootNote + 12) % 12;
+  let best = 0, bestDist = 12;
+  for (const interval of intervals) {
+    const dist = Math.min(Math.abs(rel - interval), 12 - Math.abs(rel - interval));
+    if (dist < bestDist) { bestDist = dist; best = interval; }
+  }
+  const adjusted = pitch + (best - rel);
+  return Math.max(MIN_P, Math.min(MAX_P - 1, adjusted));
+}
+
+function analyzeNewNotes(incoming, existing) {
+  const root = currentKey.root;
+  const type = currentKey.scale;
+  const violations = [];
+  const dissonances = [];
+
+  for (const n of incoming) {
+    const p = n.pitch;
+    if (!isInScale(p, root, type)) {
+      const corrected = snapToScale(p, root, type);
+      violations.push({ original: p, corrected, beat: n.start_beat });
+      n.pitch = corrected;
+    }
+  }
+
+  const allNotes = [...existing, ...incoming];
+  for (let i = 0; i < allNotes.length; i++) {
+    for (let j = i + 1; j < allNotes.length; j++) {
+      const a = allNotes[i], b = allNotes[j];
+      if (b.start_beat >= a.start_beat + a.duration) continue;
+      if (a.start_beat >= b.start_beat + b.duration) continue;
+      const interval = Math.abs(b.pitch - a.pitch) % 12;
+      if (interval === 1 || interval === 11) {
+        dissonances.push({ a: a.pitch, b: b.pitch, beat: b.start_beat.toFixed(2), type: '小二度碰撞' });
+      } else if (interval === 6) {
+        dissonances.push({ a: a.pitch, b: b.pitch, beat: b.start_beat.toFixed(2), type: '三全音' });
+      }
+    }
+  }
+
+  return { violations, dissonances, total: incoming.length };
+}
 
 let CELL_H, CELL_W;
 
@@ -29,72 +93,77 @@ NOTE → MIDI QUICK REF: C4=60 (middle C). Each octave +12. C=0 C#=1 D=2 D#=3 E=
 CRITICAL COMPOSITION RULES — OBEY STRICTLY
 ═══════════════════════════════════════
 
-🔴 RULE 1 — RESTS & SILENCE ARE MANDATORY
-NEVER make all notes connected back-to-back (no legato-only melodies). Silence IS a note.
-- Every melodic phrase (2-4 beats) MUST end with at least 0.25–0.5 beat of silence before the next phrase.
-- Use start_beat gaps: if note A ends at beat 2.0, next note should start at 2.25 or 2.5, NOT at 2.0.
-- Longer phrases (4+ beats) need a 0.5–1.0 beat rest after them for "breathing."
-- Short staccato-like notes: use duration 0.25 with 0.25 gap after (0.5 total slot), creating crisp articulation.
-- Slow/emotional passages: longer gaps between phrases (0.5–1.0 beat rest) to create spaciousness.
+🔴 RULE 0 — STOP MAKING SIN-WAVE MELODIES (MOST IMPORTANT)
+This is the #1 mistake. NEVER create melodies that walk stepwise up a scale and back down:
+  ❌ C4 D4 E4 F4 G4 F4 E4 D4 C4 — this is a SCALE EXERCISE, not a melody
+  ❌ E4 F#4 G#4 A4 B4 A4 G#4 F#4 E4 — same sin-wave, different key
+  ❌ G4 A4 B4 C5 D5 C5 B4 A4 G4 — STILL the exact same pattern!
+A real melody uses MOTIFS, leaps, and rhythmic variation — NOT mathematical functions.
 
-🔴 RULE 2 — RHYTHMIC VARIETY (NEVER monotonous)
-Every 4-bar section MUST mix at least 3 different note durations from {0.25, 0.5, 0.75, 1.0, 1.5, 2.0}.
-Pattern to avoid: ████░░░░ (all quarter notes) — this sounds mechanical and rushed.
-Good patterns mix short and long: 0.25 0.25 0.5 ░░ 1.0 0.5 0.25 0.25
-Use dotted rhythms (0.75 beat) for swing feel: long-short-long-short.
-Syncopation: place notes on off-beats (beat 0.5, 1.5, 2.5, 3.5) mixed with on-beat notes.
+🔴 RULE 0.5 — BUILD MELODY FROM A MOTIF (mandatory approach)
+Step 1: Invent a MOTIF — a short 2-5 note idea with distinct rhythm. Examples:
+  "E4 · G4 · C5 ··" (rising arpeggio, off-beat, big leap + silence = dramatic)
+  "G4 ·· E4 C4 ·" (descending, syncopated rhythm, space between notes)
+  "C4 D4 E4 G4 ··" (pentatonic run that stops BEFORE the octave)
+  "A3 · C4 · E4 ·" (sparse, wide intervals, bluesy)
+Step 2: REPEAT the motif exactly (builds familiarity)
+Step 3: TRANSPOSE the motif up/down by a 3rd, 4th, or 5th (keeps it fresh)
+Step 4: VARY the motif — change rhythm, add/remove a note, extend the ending
+Step 5: RESOLVE to tonic with a contrasting final gesture
+A 16-bar melody = motif × 4 variations, NOT a continuous up-down wave.
 
-🔴 RULE 3 — VELOCITY DYNAMICS (expression is everything)
-velocity range is 1-127. NEVER use same velocity for all notes.
-- Main melody notes: velocity 80-110
-- Passing/decoration notes: velocity 50-70
-- Ghost notes (light filler): velocity 25-45
-- Accent/emphasis notes (beat 1, climax): velocity 110-127
-- Soft intro/outro notes: velocity 60-80
-- Crescendo: velocity gradually increases across 2-4 notes (60→75→90→105)
-- Each phrase should have a dynamic shape (crescendo or decrescendo), not flat.
+🔴 RULE 1 — RESTS & NEGATIVE SPACE
+NEVER connect all notes back-to-back. Silence defines phrasing.
+- After every 1-2 beats of melody, insert 0.25-0.5 beat of silence
+- Gap of 0.5-1.0 beat between main phrases
+- If you have a note ending at beat 2.0, the next should start at 2.25 or later
 
-🔴 RULE 4 — PHRASE STRUCTURE (call & response)
-Each section MUST have clearly separated phrases, like sentences in a paragraph:
-- Phrase A (question): 2-4 bars, rising contour, ends on non-tonic note (2, 4, 5, 7 scale degree) → REST 0.5 beat
-- Phrase B (answer): 2-4 bars, falling contour, resolves to tonic (1, 3 scale degree) → REST 0.5 beat
-- Phrase C (development): variation of A with different rhythm or register → REST
-- Phrase D (conclusion): final resolution → REST
+🔴 RULE 2 — RHYTHMIC VARIETY (anti-robotic)
+Every 4-bar section MUST use at least 3 different durations from {0.25, 0.5, 0.75, 1.0, 1.5, 2.0}.
+NEVER all quarter notes (♩♩♩♩). NEVER start every note on the beat (0.0, 1.0, 2.0).
+Mix on-beat with off-beat (0.5, 1.5, 2.5). Syncopation = long note starts on weak beat, holds through strong beat.
+Good: 0.25 0.25 0.5 [REST] 1.0 0.5 0.25 0.25
 
-🔴 RULE 5 — DENSITY CONTROL
-Music must "breathe" — not all bars equally full:
-- Bar 1-2: moderate density (4-8 notes)
-- Bar 3-4: higher density (6-12 notes, climax area)
-- Bar 5-6: lower density (2-5 notes, released tension)
-- Bar 7-8: resolution (1-4 notes, calm ending)
-NOT: every bar has 8 notes (this sounds suffocating).
+🔴 RULE 3 — VELOCITY DYNAMICS (expression)
+Velocity 1-127. NEVER flat velocity across a phrase.
+- Strong beats: 90-110, weak beats/passing: 60-80, accent peaks: 110-127
+- Each phrase MUST have a dynamic arc — crescendo (60→75→90→105) or decrescendo
 
-🔴 RULE 6 — HARMONY & COUNTERPOINT
-- Chord tones (1,3,5) go on strong beats (beat 1, 3 in 4/4)
-- Non-chord tones (2,4,6,7) as passing notes on weak beats or off-beats
-- Avoid parallel octaves/fifths in polyphonic writing
-- Use contrary motion between bass and melody for richness
+🔴 RULE 4 — CHORD-TONE PLACEMENT
+Strong beats (1, 3 in 4/4) MUST feature chord tones (root/3rd/5th/7th of current scale).
+Non-chord tones (2nd, 4th, 6th) are passing notes on weak beats / off-beats ONLY.
+Use get_state() to check the current key. Notes outside the scale will be AUTO-CORRECTED by the system — check the returned "analysis" field to see what was fixed and learn from it.
 
-🔴 RULE 7 — STYLE-SPECIFIC ADAPTATION
-- Ballad/Slow: duration 1.0-2.0 dominant, velocity soft (60-90), large rests (0.5-1.0 beat gaps)
-- Pop: duration 0.5-1.0 mixed, velocity balanced (70-100), moderate rests (0.25-0.5 beat)
-- EDM/House: duration 0.25-0.5 dominant on bass, melody uses 0.5-1.0, tight rests
-- Jazz: use swing (0.75 beat dotted), syncopation-heavy, velocity varied
-- Classical: strict phrasing, clear cadences, 1.0 beat rests between phrases
+🔴 RULE 5 — LEAP + STEP MIX (avoids the wave trap)
+Pure stepwise = scale exercise. Pure leaps = disconnected.
+RULE: After a leap of 3rd or larger, resolve by step in the OPPOSITE direction.
+Good: C4↑E4↑G4↓F4↓E4 (leap up, then step down) — creates interest + resolution
+Good: G4↓E4↓C4↑D4↑E4 (leap down, then step up)
+Bad:  C4↑D4↑E4↑F4↑G4 (pure scale = robotic wave)
 
-🔴 RULE 0 — PRE-GENERATION WORKFLOW (do BEFORE calling add_notes)
-Follow this mandatory sequence when the user asks you to write music:
-1. IF you haven't checked the current state yet → call get_state() to learn BPM/key/time_signature
-2. IF the user wants to modify/add to existing notes → call get_notes() to see what's already on the canvas
-3. NEVER add notes blindly — always know the current state first
-4. When the user says "change that last phrase" or "make it slower" → use update_note() to edit existing notes instead of deleting and re-adding
-5. When the user says "make the melody softer" → use update_note() to lower velocity, NOT remove+add
+🔴 RULE 6 — INTERVAL SAFETY
+Mostly use: 2nd, 3rd, 4th, 5th. Sparingly: 6th, octave.
+AVOID in melody: minor 2nd (1 semitone = harsh), tritone (6 semitones), major 7th (11 semitones).
+The system detects and reports dissonant overlaps — check the analysis and adjust.
 
-Before generating ANY notes, mentally plan:
-1. "Where are my rests?" (at least every 2 bars)
-2. "What is my dynamic shape?" (velocity curve per phrase)
-3. "What is my density pattern?" (varied across bars)
-4. "What is my rhythmic variety?" (at least 3 durations per section)
+🔴 RULE 7 — STYLE-SPECIFIC
+Ballad: slow, notes 1.0-2.0, expressive leaps, lots of silence, vel 60-90
+Pop: moderate, hook-driven, mix step+leap, vel 70-100, 0.25-0.5 rests
+EDM: tight, rhythmic, lots of 0.25 notes on off-beats, vel 80-110
+Jazz: syncopated, swing (0.75), chromatic passing notes, vel varied
+
+🔴 RULE 8 — PRE-GENERATION WORKFLOW (do BEFORE calling add_notes)
+1. Always call get_state() FIRST to know the current key/BPM
+2. Call get_notes() to see existing notes and avoid collisions
+3. Plan your MOTIF first before generating a single note
+4. When editing → use update_note(), never delete+re-add
+
+Before generating ANY notes, answer these 5 questions in your reasoning:
+1. "What is my MOTIF?" (specific notes + rhythm)
+2. "How will I develop it?" (repeat → transpose → vary → resolve)
+3. "Where are my rests?" (breathing points every 1-2 beats)
+4. "What is the velocity shape?" (dynamic arc per phrase)
+5. "Am I avoiding the sin-wave trap?" (leaps + steps mixed, not straight up-down)
 
 Always explain what you wrote and the musical reasoning in Chinese.`;
 
@@ -134,14 +203,14 @@ function buildSystemPrompt() {
 }
 
 const TOOLS = [
-  {type:"function",function:{name:"add_note",description:"Add a single note to the piano roll",
+  {type:"function",function:{name:"add_note",description:"Add a single note. System auto-corrects notes outside the current scale.",
     parameters:{type:"object",properties:{
       pitch:{type:"integer",description:"MIDI 36-96"},
       start_beat:{type:"number",description:"Start beat (0-based, 0.25 increments)"},
       duration:{type:"number",description:"0.25/0.5/1/2/4 beats"},
       velocity:{type:"integer",description:"1-127, default 100"}},
       required:["pitch","start_beat","duration"]}}},
-  {type:"function",function:{name:"add_notes",description:"Batch-add multiple notes at once",
+  {type:"function",function:{name:"add_notes",description:"Batch-add notes. System auto-corrects out-of-scale notes and reports dissonances. Prefer this over add_note for batches.",
     parameters:{type:"object",properties:{notes:{type:"array",
       items:{type:"object",properties:{
         pitch:{type:"integer"},start_beat:{type:"number"},
@@ -152,7 +221,7 @@ const TOOLS = [
     parameters:{type:"object",properties:{
       pitch:{type:"integer"},start_beat:{type:"number"}},
       required:["pitch","start_beat"]}}},
-  {type:"function",function:{name:"update_note",description:"Modify an existing note's pitch, start_beat, duration or velocity. Provide pitch+start_beat to identify the note, then any of new_pitch/new_start_beat/new_duration/new_velocity to change",
+  {type:"function",function:{name:"update_note",description:"Modify existing note. New pitch will be auto-corrected to scale if needed.",
     parameters:{type:"object",properties:{
       pitch:{type:"integer",description:"Current MIDI of the note to update, 36-96"},
       start_beat:{type:"number",description:"Current start_beat of the note to update"},
@@ -163,9 +232,9 @@ const TOOLS = [
       required:["pitch","start_beat"]}}},
   {type:"function",function:{name:"clear_all",description:"Remove all notes",
     parameters:{type:"object",properties:{}}}},
-  {type:"function",function:{name:"get_notes",description:"List all current notes on the piano roll",
+  {type:"function",function:{name:"get_notes",description:"List all notes. Call this to check existing notes before adding new ones.",
     parameters:{type:"object",properties:{}}}},
-  {type:"function",function:{name:"get_state",description:"Read current BPM, musical key, time signature and note count",
+  {type:"function",function:{name:"get_state",description:"Read current BPM, musical key, time signature and note count. Always call this first.",
     parameters:{type:"object",properties:{}}}},
   {type:"function",function:{name:"set_tempo",description:"Set BPM (40-300)",
     parameters:{type:"object",properties:{bpm:{type:"number"}},required:["bpm"]}}},
@@ -1194,17 +1263,42 @@ function execTool(name, args) {
   try {
     switch(name) {
     case 'add_note': {
-      const p=args.pitch, s=args.start_beat, d=args.duration, v=args.velocity;
+      let p=args.pitch, s=args.start_beat, d=args.duration, v=args.velocity;
+      const analysis = analyzeNewNotes([{pitch:p, start_beat:s, duration:d, velocity:v}], notes);
+      if (analysis.violations.length > 0) {
+        p = analysis.violations[0].corrected;
+      }
       addNote(p,s,d,v); paintAll();
-      return {ok:true, note:NOTE_NAMES[p%12]+(Math.floor(p/12)-1), beat:s, dur:d};
+      const result = {ok:true, note:NOTE_NAMES[p%12]+(Math.floor(p/12)-1), beat:s, dur:d};
+      if (analysis.violations.length > 0) {
+        result.warning = '音高已自动修正: 原始 ' + analysis.violations[0].original + ' → ' + p + ' (不在' + NOTE_NAMES[currentKey.root%12] + ' ' + currentKey.scale + '音阶内)';
+      }
+      if (analysis.dissonances.length > 0) {
+        result.dissonances = analysis.dissonances;
+      }
+      return result;
     }
     case 'add_notes': {
+      const analysis = analyzeNewNotes(args.notes, notes);
       pushHistory();
       let c=0;
       for (const nt of args.notes) {
         _addNoteRaw(nt.pitch, nt.start_beat, nt.duration, nt.velocity); c++;
       }
-      paintAll(); return {ok:true, count:c};
+      paintAll();
+      const result = {ok:true, count:c};
+      if (analysis.violations.length > 0 || analysis.dissonances.length > 0) {
+        result.analysis = {
+          out_of_scale: analysis.violations.length,
+          corrected: analysis.violations.map(function(v) { return {original: v.original, fixed_to: v.corrected, beat: v.beat}; }),
+          dissonant_pairs: analysis.dissonances.length > 0 ? analysis.dissonances.slice(0, 8) : [],
+          dissonant_count: analysis.dissonances.length,
+        };
+        if (analysis.violations.length > 0) {
+          result.analysis.summary = analysis.violations.length + '个音符不在' + NOTE_NAMES[currentKey.root%12] + ' ' + currentKey.scale + '音阶内，已自动修正';
+        }
+      }
+      return result;
     }
     case 'remove_note': {
       const b4=notes.length;
@@ -1215,7 +1309,13 @@ function execTool(name, args) {
       const idx = notes.findIndex(n => n.pitch===args.pitch && Math.abs(n.start_beat-args.start_beat)<0.001);
       if (idx === -1) return {error:'note not found'};
       pushHistory();
-      if (args.new_pitch !== undefined) notes[idx].pitch = args.new_pitch;
+      if (args.new_pitch !== undefined) {
+        let np = args.new_pitch;
+        if (!isInScale(np, currentKey.root, currentKey.scale)) {
+          np = snapToScale(np, currentKey.root, currentKey.scale);
+        }
+        notes[idx].pitch = np;
+      }
       if (args.new_start_beat !== undefined) notes[idx].start_beat = args.new_start_beat;
       if (args.new_duration !== undefined) notes[idx].duration = args.new_duration;
       if (args.new_velocity !== undefined) notes[idx].velocity = args.new_velocity;
