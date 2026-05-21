@@ -1,4 +1,4 @@
-﻿const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+﻿﻿const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_KEYS = new Set([1,3,6,8,10]);
 const MIN_P = 36, MAX_P = 97, N_P = MAX_P - MIN_P;
 const KEY_W = 56, HDR_H = 22;
