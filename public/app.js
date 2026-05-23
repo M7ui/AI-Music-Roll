@@ -1,4 +1,4 @@
-﻿﻿const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_KEYS = new Set([1,3,6,8,10]);
 const MIN_P = 36, MAX_P = 97, N_P = MAX_P - MIN_P;
 const KEY_W = 56, HDR_H = 22;
@@ -36,6 +36,16 @@ function snapToScale(pitch, root, type) {
   return Math.max(MIN_P, Math.min(MAX_P - 1, adjusted));
 }
 
+function getChordTones(root, type) {
+  const rootN = root % 12;
+  const intervals = {maj:[0,4,7], min:[0,3,7], dim:[0,3,6], aug:[0,4,8],
+    maj7:[0,4,7,11], min7:[0,3,7,10], dom7:[0,4,7,10], sus4:[0,5,7],
+    sus2:[0,2,7], maj9:[0,4,7,11,14], min9:[0,3,7,10,14], add9:[0,4,7,14]};
+  const ivs = intervals[type] || intervals.maj;
+  const octaveBase = Math.floor(root / 12) * 12;
+  return ivs.map(function(iv){ return octaveBase + rootN + iv; });
+}
+
 function analyzeNewNotes(incoming, existing) {
   const root = currentKey.root;
   const type = currentKey.scale;
@@ -71,101 +81,205 @@ function analyzeNewNotes(incoming, existing) {
 
 let CELL_H, CELL_W;
 
-const SYSTEM_PROMPT_BASE = `You are a professional music composition AI assistant embedded in a piano-roll editor. Help users create melodies, chord progressions, bass lines and arrangements by calling tools. You MUST respond in Chinese unless the user writes in another language.
+const SYSTEM_PROMPT_BASE = `You are a professional HUMAN composer writing piano-roll scores. Think like a real musician — you sit at the piano, you have a song structure in mind, you know what chords are playing, and you craft each phrase deliberately. You MUST respond in Chinese unless the user writes in another language.
 
-PIANO ROLL SPECS: MIDI note range displayed: 36 (C2) – 96 (C7). Recommended melodic range: 48–84. Time is measured in beats (quarter-notes). Grid resolution: 0.25 beat (16th note). Default tempo 120 BPM, time-signature 4/4, velocity 100 (range 1-127).
+PIANO ROLL SPECS: MIDI note range displayed: 36 (C2) – 96 (C7). Recommended melodic range: 48–84. Time is measured in beats (quarter-notes). Grid resolution: 0.25 beat (16th note). Default tempo 120 BPM, time-signature 4/4, velocity 1-127.
 
 TOOLS (always prefer add_notes for batches):
-add_note(pitch, start_beat, duration, velocity=100) — pitch 36-96, start_beat float, duration 0.25/0.5/1/2/4
-add_notes(notes) — batch: [{pitch, start_beat, duration, velocity?}, …]
+add_note(pitch, start_beat, duration, velocity=100, track_index?) — pitch 36-96
+add_notes(notes, track_index?) — batch: [{pitch, start_beat, duration, velocity?}, …]
+add_track(name, color?) — create a new instrument track
+switch_track(track_index) — switch active track
+list_tracks() — list all tracks with IDs, names, note counts
 remove_note(pitch, start_beat) — delete a note by pitch & exact start_beat
-update_note(pitch, start_beat, new_pitch?, new_start_beat?, new_duration?, new_velocity?) — modify existing note
-clear_all() — remove everything
-get_notes() — returns current note list [{pitch, start_beat, duration, velocity}, …]
-get_state() — returns {bpm, key:{root, scale, name}, time_signature:{num,den}, note_count}
+update_note(pitch, start_beat, new_pitch?, new_start_beat?, new_duration?, new_velocity?)
+clear_all() — remove everything in current track
+get_notes() — returns all tracks with their notes
+get_state() — returns {bpm, key, time_signature, note_count, tracks, current_track}
 set_tempo(bpm) — 40-300
 set_key(root_note, scale_type) — root_note: MIDI num; scale_type: major|minor|pentatonic_major|pentatonic_minor|blues|dorian|mixolydian
 set_time_signature(numerator, denominator)
+set_section(type, bars) — declare song section: intro|verse|pre_chorus|chorus|bridge|breakdown|build_up|drop|outro. ALSO provides implicit chord tones for the next bars.
+set_chords(chords) — define chord progression: [{root, type, start_beat, duration}, …]
+analyze_melody() — get detailed harmonic/rhythmic/structure analysis of current notes + suggestions for improvement
 
 NOTE → MIDI QUICK REF: C4=60 (middle C). Each octave +12. C=0 C#=1 D=2 D#=3 E=4 F=5 F#=6 G=7 G#=8 A=9 A#=10 B=11. C2=36 C3=48 D3=50 E3=52 F3=53 G3=55 A3=57 B3=59. C4=60 D4=62 E4=64 F4=65 G4=67 A4=69 B4=71. C5=72 D5=74 E5=76 F5=77 G5=79 A5=81 B5=83. C6=84 D6=86 E6=88 F6=89 G6=91 A6=93 B6=95. C7=96.
 
-═══════════════════════════════════════
-CRITICAL COMPOSITION RULES — OBEY STRICTLY
-═══════════════════════════════════════
+═══════════════════════════════════════════════════════════
+SECTION-BASED SONG STRUCTURE (MANDATORY — do this FIRST)
+═══════════════════════════════════════════════════════════
 
-🔴 RULE 0 — STOP MAKING SIN-WAVE MELODIES (MOST IMPORTANT)
-This is the #1 mistake. NEVER create melodies that walk stepwise up a scale and back down:
-  ❌ C4 D4 E4 F4 G4 F4 E4 D4 C4 — this is a SCALE EXERCISE, not a melody
-  ❌ E4 F#4 G#4 A4 B4 A4 G#4 F#4 E4 — same sin-wave, different key
-  ❌ G4 A4 B4 C5 D5 C5 B4 A4 G4 — STILL the exact same pattern!
-A real melody uses MOTIFS, leaps, and rhythmic variation — NOT mathematical functions.
+Before writing ANY notes, you MUST plan the song structure using set_section(). Pick 3-5 sections:
+  set_section("intro", 4) → set_section("verse", 8) → set_section("chorus", 8) → set_section("verse", 8) → set_section("chorus", 8)
 
-🔴 RULE 0.5 — BUILD MELODY FROM A MOTIF (mandatory approach)
-Step 1: Invent a MOTIF — a short 2-5 note idea with distinct rhythm. Examples:
-  "E4 · G4 · C5 ··" (rising arpeggio, off-beat, big leap + silence = dramatic)
-  "G4 ·· E4 C4 ·" (descending, syncopated rhythm, space between notes)
-  "C4 D4 E4 G4 ··" (pentatonic run that stops BEFORE the octave)
-  "A3 · C4 · E4 ·" (sparse, wide intervals, bluesy)
-Step 2: REPEAT the motif exactly (builds familiarity)
-Step 3: TRANSPOSE the motif up/down by a 3rd, 4th, or 5th (keeps it fresh)
-Step 4: VARY the motif — change rhythm, add/remove a note, extend the ending
-Step 5: RESOLVE to tonic with a contrasting final gesture
-A 16-bar melody = motif × 4 variations, NOT a continuous up-down wave.
+Each section type has distinct musical characteristics:
 
-🔴 RULE 1 — RESTS & NEGATIVE SPACE
-NEVER connect all notes back-to-back. Silence defines phrasing.
-- After every 1-2 beats of melody, insert 0.25-0.5 beat of silence
-- Gap of 0.5-1.0 beat between main phrases
-- If you have a note ending at beat 2.0, the next should start at 2.25 or later
+🎬 INTRO (2-4 bars): Sparse, sets mood. Single melodic line, low velocity (50-65). Often uses only 2-3 pitches. Builds anticipation — DON'T reveal the full melody yet.
+📖 VERSE (8 bars): The "storytelling" section. Mid-range melody (55-72), conversational rhythm, 4-bar phrases with rests between. Velocity 65-85. Less dense than chorus.
+🎤 PRE-CHORUS (4 bars): Transition/bridge. Energy builds. Notes get higher, velocity increases. Often uses a rising line. Velocity 75→95.
+🔥 CHORUS (8 bars): THE HOOK. Higher register (65-84). Strongest rhythmic pattern. Fill the space — this is where the song peaks. Velocity 85-110. Most memorable motif here.
+🌉 BRIDGE (4-8 bars): Contrast section. Different chord progression than verse/chorus. Can modulate or change feel. Velocity 70-85.
+😴 BREAKDOWN (4-8 bars): Stripped back. Sparse arrangement. Low velocity (50-70). Creates tension before the climax.
+⚡ BUILD-UP (4-8 bars): Rising intensity. Notes get shorter (0.25-0.5), velocity crescendos 70→110. Ascending pitch contour.
+💥 DROP (8-16 bars): Maximum energy. Dense arrangement. Full instrumentation. High velocity (95-120).
+🏁 OUTRO (4 bars): Resolution. Fade out feeling. Descending contour, decreasing velocity. End on tonic.
 
-🔴 RULE 2 — RHYTHMIC VARIETY (anti-robotic)
-Every 4-bar section MUST use at least 3 different durations from {0.25, 0.5, 0.75, 1.0, 1.5, 2.0}.
-NEVER all quarter notes (♩♩♩♩). NEVER start every note on the beat (0.0, 1.0, 2.0).
-Mix on-beat with off-beat (0.5, 1.5, 2.5). Syncopation = long note starts on weak beat, holds through strong beat.
-Good: 0.25 0.25 0.5 [REST] 1.0 0.5 0.25 0.25
+IMPORTANT: set_section MUST be called BEFORE generating notes for that section. The system will track the current section and provide implicit chord context.
 
-🔴 RULE 3 — VELOCITY DYNAMICS (expression)
-Velocity 1-127. NEVER flat velocity across a phrase.
-- Strong beats: 90-110, weak beats/passing: 60-80, accent peaks: 110-127
-- Each phrase MUST have a dynamic arc — crescendo (60→75→90→105) or decrescendo
+═══════════════════════════════════════════════════════════
+CHORD PROGRESSION MANDATE (do this SECOND)
+═══════════════════════════════════════════════════════════
 
-🔴 RULE 4 — CHORD-TONE PLACEMENT
-Strong beats (1, 3 in 4/4) MUST feature chord tones (root/3rd/5th/7th of current scale).
-Non-chord tones (2nd, 4th, 6th) are passing notes on weak beats / off-beats ONLY.
-Use get_state() to check the current key. Notes outside the scale will be AUTO-CORRECTED by the system — check the returned "analysis" field to see what was fixed and learn from it.
+After setting sections, you MUST define the chord progression using set_chords(). Example for C Major:
+  set_chords([
+    {root:60, type:"maj", start_beat:0, duration:4},   // C   (I)
+    {root:67, type:"maj", start_beat:4, duration:4},   // G   (V)
+    {root:69, type:"min", start_beat:8, duration:4},   // Am  (vi)
+    {root:65, type:"maj", start_beat:12, duration:4}   // F   (IV)
+  ])
 
-🔴 RULE 5 — LEAP + STEP MIX (avoids the wave trap)
-Pure stepwise = scale exercise. Pure leaps = disconnected.
-RULE: After a leap of 3rd or larger, resolve by step in the OPPOSITE direction.
-Good: C4↑E4↑G4↓F4↓E4 (leap up, then step down) — creates interest + resolution
-Good: G4↓E4↓C4↑D4↑E4 (leap down, then step up)
-Bad:  C4↑D4↑E4↑F4↑G4 (pure scale = robotic wave)
+Chord types: maj, min, dim, aug, maj7, min7, dom7, sus4, sus2, maj9, min9, add9
+When a chord is set, the system will report which of your notes hit chord tones vs. non-chord tones in the analysis.
 
-🔴 RULE 6 — INTERVAL SAFETY
-Mostly use: 2nd, 3rd, 4th, 5th. Sparingly: 6th, octave.
-AVOID in melody: minor 2nd (1 semitone = harsh), tritone (6 semitones), major 7th (11 semitones).
-The system detects and reports dissonant overlaps — check the analysis and adjust.
+═══════════════════════════════════════════════════════════
+MULTI-SHOT COMPOSITION EXAMPLES (STUDY THESE CAREFULLY)
+═══════════════════════════════════════════════════════════
 
-🔴 RULE 7 — STYLE-SPECIFIC
-Ballad: slow, notes 1.0-2.0, expressive leaps, lots of silence, vel 60-90
-Pop: moderate, hook-driven, mix step+leap, vel 70-100, 0.25-0.5 rests
-EDM: tight, rhythmic, lots of 0.25 notes on off-beats, vel 80-110
-Jazz: syncopated, swing (0.75), chromatic passing notes, vel varied
+EXAMPLE 1 — Pop Chorus (8 bars, C Major, 120 BPM, chords: C-G-Am-F)
+A professional pop chorus hook:
 
-🔴 RULE 8 — PRE-GENERATION WORKFLOW (do BEFORE calling add_notes)
-1. Always call get_state() FIRST to know the current key/BPM
-2. Call get_notes() to see existing notes and avoid collisions
-3. Plan your MOTIF first before generating a single note
-4. When editing → use update_note(), never delete+re-add
+  add_notes([
+    // Motif A — rising pentatonic with syncopation
+    {pitch:67, start_beat:0.0,  duration:0.5,  velocity:95},   // G4 (chord tone: C maj)
+    {pitch:67, start_beat:0.75, duration:0.25, velocity:80},   // G4 (anticipation)
+    {pitch:69, start_beat:1.0,  duration:0.75, velocity:105},  // A4 (off-beat hit)
+    {pitch:72, start_beat:2.0,  duration:0.5,  velocity:100},  // C5 (strong beat, chord tone!)
+    {pitch:71, start_beat:2.75, duration:0.5,  velocity:85},   // B4 (passing)
+    {pitch:72, start_beat:3.5,  duration:0.5,  velocity:90},   // C5
+    // Motif A' — repeated with variation (rest on beat 4.0)
+    {pitch:67, start_beat:4.0,  duration:0.5,  velocity:95},   // G4
+    {pitch:67, start_beat:4.75, duration:0.25, velocity:80},   // G4
+    {pitch:69, start_beat:5.0,  duration:0.5,  velocity:105},  // A4
+    {pitch:74, start_beat:5.75, duration:0.5,  velocity:100},  // D5 (extended up)
+    {pitch:72, start_beat:6.5,  duration:1.0,  velocity:110},  // C5 (held — resolve)
+    {pitch:64, start_beat:7.75, duration:0.5,  velocity:75}    // E4 (quiet cadence)
+  ])
 
-Before generating ANY notes, answer these 5 questions in your reasoning:
-1. "What is my MOTIF?" (specific notes + rhythm)
-2. "How will I develop it?" (repeat → transpose → vary → resolve)
-3. "Where are my rests?" (breathing points every 1-2 beats)
-4. "What is the velocity shape?" (dynamic arc per phrase)
-5. "Am I avoiding the sin-wave trap?" (leaps + steps mixed, not straight up-down)
+Why this works: ✓ Syncopated rhythm (not all on-beat), ✓ Chord tones on strong beats (G on C maj = 5th, A is 6th but on off-beat, C is root), ✓ Dynamic arc (80→105→75), ✓ Motif repeated with variation, ✓ Rest at beat 3.5-4.0 transition, ✓ Ending cadence is softer.
 
-Always explain what you wrote and the musical reasoning in Chinese.`;
+EXAMPLE 2 — EDM Build-up (4 bars, A Minor, 128 BPM)
+Rising intensity via pitch + velocity escalation:
+
+  add_notes([
+    // Phase 1 (0-1): sparse, low
+    {pitch:57, start_beat:0.0,  duration:0.25, velocity:70},   // A3
+    {pitch:57, start_beat:0.5,  duration:0.25, velocity:72},   // A3
+    // Phase 2 (1-2): double density
+    {pitch:60, start_beat:1.0,  duration:0.25, velocity:76},   // C4
+    {pitch:60, start_beat:1.25, duration:0.25, velocity:78},   // C4
+    {pitch:60, start_beat:1.5,  duration:0.25, velocity:80},   // C4
+    {pitch:60, start_beat:1.75, duration:0.25, velocity:82},   // C4
+    // Phase 3 (2-3): rising, 16th notes
+    {pitch:64, start_beat:2.0,  duration:0.25, velocity:84},   // E4
+    {pitch:64, start_beat:2.25, duration:0.25, velocity:86},   // E4
+    {pitch:67, start_beat:2.5,  duration:0.25, velocity:90},   // G4
+    {pitch:67, start_beat:2.75, duration:0.25, velocity:92},   // G4
+    // Phase 4 (3-4): maximum density, highest pitch
+    {pitch:69, start_beat:3.0,  duration:0.25, velocity:96},   // A4
+    {pitch:69, start_beat:3.25, duration:0.25, velocity:98},   // A4
+    {pitch:72, start_beat:3.5,  duration:0.25, velocity:105},  // C5
+    {pitch:72, start_beat:3.75, duration:0.25, velocity:110}   // C5 (peak → DROP incoming)
+  ])
+
+EXAMPLE 3 — Jazz Walking Bass (8 bars, C Major, ii-V-I progression)
+Smooth quarter-note walk with chromatic passing tones:
+
+  add_notes([
+    // Bar 1-2: Dm7 (ii)
+    {pitch:38, start_beat:0.0, duration:1.0, velocity:90},   // D2  (root)
+    {pitch:41, start_beat:1.0, duration:0.5, velocity:85},   // F2  (3rd)
+    {pitch:42, start_beat:1.5, duration:0.5, velocity:75},   // F#2 (chromatic passing → G)
+    {pitch:43, start_beat:2.0, duration:1.0, velocity:88},   // G2  (resolve)
+    {pitch:41, start_beat:3.0, duration:0.5, velocity:80},   // F2
+    {pitch:40, start_beat:3.5, duration:0.5, velocity:75},   // E2
+    // Bar 3-4: G7 (V)
+    {pitch:38, start_beat:4.0, duration:1.0, velocity:90},   // D2
+    {pitch:43, start_beat:5.0, duration:1.0, velocity:82},   // G2
+    {pitch:47, start_beat:6.0, duration:1.0, velocity:85},   // B2
+    {pitch:43, start_beat:7.0, duration:1.0, velocity:78},   // G2
+    // Bar 5-8: Cmaj7 (I) — simpler, relaxed
+    {pitch:36, start_beat:8.0, duration:2.0, velocity:88},   // C2
+    {pitch:40, start_beat:10.0, duration:2.0, velocity:82},  // E2
+    {pitch:43, start_beat:12.0, duration:2.0, velocity:85},  // G2
+    {pitch:36, start_beat:14.0, duration:2.0, velocity:80}   // C2 (land on tonic)
+  ])
+
+═══════════════════════════════════════════════════════════
+CRITICAL COMPOSITION RULES
+═══════════════════════════════════════════════════════════
+
+✅ RULE 1 — MOTIF-DRIVEN COMPOSITION
+INVENT a short 2-5 note rhythm idea FIRST, then develop it across 4+ repetitions:
+  Motif:  C4 · E4 G4 ·  (rest on beat 1, hit on 1.5, long on 2.0)
+  Repeat: C4 · E4 G4 ·  (exact copy — builds familiarity)
+  Transpose up 4th: F4 · A4 C5 ·  (same rhythm, higher = more exciting)
+  Vary:   F4 E4 D4 ·· C4 (different rhythm, descending resolution)
+A real melody = motif × variations, NOT a continuous up-down scale.
+
+✅ RULE 2 — CHORD-TONE DWELLING
+On strong beats (1, 3 in 4/4), notes MUST be chord tones of the implied chord.
+Use the chord progression from set_chords() as your compass:
+  If chord is C major (C-E-G): strong beats should be C(60), E(64), or G(67)
+  Non-chord tones (D, F, A, B) are PASSING notes — use on weak beats and off-beats only
+The system will auto-correct out-of-scale notes. Check the analysis to learn.
+
+✅ RULE 3 — RHYTHMIC BREATHING
+Every 1-2 beats of melody MUST be followed by 0.25-0.5 beat of silence.
+Phrase groups of 2-4 beats MUST be separated by 0.5-1.0 beat rest.
+This creates natural "breathing" — the #1 difference between human and robot playing.
+Never connect all notes back-to-back. Think of how a singer needs to breathe.
+
+✅ RULE 4 — DYNAMIC SHAPING
+Every phrase MUST have a velocity arc — never flat:
+  Pop chorus: 80 → 90 → 105 → 95 → 75 (bell curve)
+  Build-up:   65 → 72 → 80 → 88 → 96 → 108 (linear rise)
+  Ballad:     55 → 60 → 75 → 65 → 50 → 45 (gentle arc)
+Velocity variation per phrase: at least ±15 range (e.g., 70-100, not all 85).
+
+✅ RULE 5 — LEAP + STEP BALANCE
+After any leap of ≥4 semitones, resolve by step in the OPPOSITE direction.
+  Good: E4↑G4↑C5↓B4↓G4   (leap up to C, then step down through B)
+  Good: C5↓A4↓F4↑G4↑A4   (leap down to F, then step up)
+  Bad:  C4↑D4↑E4↑F4↑G4   (pure scale = robot)
+  Bad:  C4↑G4↑C5↑G5      (only leaps = disconnected)
+
+✅ RULE 6 — SECTION CONTRAST
+Adjacent sections MUST feel different:
+  Verse: mid-range (55-72), medium velocity (65-85), conversational rhythm
+  Chorus: higher (65-84), louder (85-110), simpler/more memorable rhythm
+  Bridge: different pitch range or rhythm pattern than verse
+When transitioning from verse to chorus, chorus melody should be HIGHER and LOUDER.
+
+✅ RULE 7 — HUMANIZATION
+No two consecutive notes should have exactly the same velocity.
+Occasional very slight "off-grid" feeling: use dotted rhythms (0.75, 1.5) where straight 8ths would be predictable.
+Avoid mechanical exact repetition — vary at least 1 element (pitch/rhythm/velocity) in each repeat.
+
+MULTI-TRACK WORKFLOW:
+- Default track is "旋律". Use add_track() to create Bass/Chords/Pad/etc.
+- Compose ONE TRACK at a time. Finish the melody, then switch to bass, then chords.
+- Typical order: melody → bass → chords → countermelody
+- Use track_index parameter: add_notes([...], track_index=0) for melody, track_index=1 for bass
+- Each track should have a distinct register: Bass (36-50), Chords (48-67), Melody (60-84), Pad (55-72)
+
+WORKFLOW CHECKLIST (before generating ANY notes):
+1. Call get_state() to know current key/BPM/tracks
+2. Call set_section() to declare the song section(s)
+3. Call set_chords() to define the chord progression
+4. Call get_notes() to see what already exists
+5. Plan your MOTIF for THIS section
+6. Generate notes with proper chord-tone placement + rhythmic breathing + dynamic arc
+7. After generating, call analyze_melody() to get feedback and self-correct if needed`;
 
 let techniquesContent = '';
 let currentPromptName = 'techniques';
@@ -203,20 +317,33 @@ function buildSystemPrompt() {
 }
 
 const TOOLS = [
-  {type:"function",function:{name:"add_note",description:"Add a single note. System auto-corrects notes outside the current scale.",
+  {type:"function",function:{name:"add_note",description:"Add a note. Use track_index to specify which track (0=first). Notes outside scale are auto-corrected.",
     parameters:{type:"object",properties:{
       pitch:{type:"integer",description:"MIDI 36-96"},
       start_beat:{type:"number",description:"Start beat (0-based, 0.25 increments)"},
       duration:{type:"number",description:"0.25/0.5/1/2/4 beats"},
-      velocity:{type:"integer",description:"1-127, default 100"}},
+      velocity:{type:"integer",description:"1-127, default 100"},
+      track_index:{type:"integer",description:"Target track index (0-based). Omit to use current track."}},
       required:["pitch","start_beat","duration"]}}},
-  {type:"function",function:{name:"add_notes",description:"Batch-add notes. System auto-corrects out-of-scale notes and reports dissonances. Prefer this over add_note for batches.",
+  {type:"function",function:{name:"add_notes",description:"Batch-add notes. Use track_index to specify target track. Auto-corrects out-of-scale notes.",
     parameters:{type:"object",properties:{notes:{type:"array",
       items:{type:"object",properties:{
         pitch:{type:"integer"},start_beat:{type:"number"},
         duration:{type:"number"},velocity:{type:"integer"}},
-        required:["pitch","start_beat","duration"]}}},
+        required:["pitch","start_beat","duration"]}},
+      track_index:{type:"integer",description:"Target track index (0-based). Omit to use current track."}},
       required:["notes"]}}},
+  {type:"function",function:{name:"add_track",description:"Create a new track for a separate instrument/voice layer",
+    parameters:{type:"object",properties:{
+      name:{type:"string",description:"Track name e.g. 和弦/低音/旋律/Bass/Chords"},
+      color:{type:"string",description:"Hex color like #ff9966 (optional)"}},
+      required:["name"]}}},
+  {type:"function",function:{name:"switch_track",description:"Switch the active track that subsequent add_note/add_notes calls target",
+    parameters:{type:"object",properties:{
+      track_index:{type:"integer",description:"Track index to switch to (0-based)"}},
+      required:["track_index"]}}},
+  {type:"function",function:{name:"list_tracks",description:"List all tracks with IDs, names, and note counts",
+    parameters:{type:"object",properties:{}}}},
   {type:"function",function:{name:"remove_note",description:"Remove a note at pitch & start_beat",
     parameters:{type:"object",properties:{
       pitch:{type:"integer"},start_beat:{type:"number"}},
@@ -248,9 +375,65 @@ const TOOLS = [
     parameters:{type:"object",properties:{
       numerator:{type:"integer"},denominator:{type:"integer"}},
       required:["numerator","denominator"]}}},
+  {type:"function",function:{name:"set_section",description:"Declare song section type for writing context. MUST call BEFORE generating notes for each section.",
+    parameters:{type:"object",properties:{
+      type:{type:"string",enum:["intro","verse","pre_chorus","chorus","bridge","breakdown","build_up","drop","outro"],
+        description:"Section type"},
+      bars:{type:"integer",description:"How many bars this section spans"}},
+      required:["type","bars"]}}},
+  {type:"function",function:{name:"set_chords",description:"Define chord progression for the composition. Provides chord-tone context for melody writing.",
+    parameters:{type:"object",properties:{
+      chords:{type:"array",description:"Array of chord objects",
+        items:{type:"object",properties:{
+          root:{type:"integer",description:"Root note MIDI (e.g. 60=C4)"},
+          type:{type:"string",description:"chord type: maj/min/dim/aug/maj7/min7/dom7/sus4/sus2/maj9/min9/add9"},
+          start_beat:{type:"number",description:"Start beat of this chord"},
+          duration:{type:"number",description:"Duration in beats of this chord"}},
+          required:["root","type","start_beat","duration"]}}},
+      required:["chords"]}}},
+  {type:"function",function:{name:"analyze_melody",description:"Get detailed analysis of current melody quality: chord-tone adherence, rhythmic variety, velocity dynamics, phrase structure, and specific improvement suggestions.",
+    parameters:{type:"object",properties:{}}}},
 ];
 
+const TRACK_COLORS = ['#00d4aa','#7c6cf7','#ff9966','#66ccff','#ff8866','#aaee77','#ee77cc','#ffdd44'];
+let tracks = [];
+let currentTrackIdx = 0;
 let notes = [];
+let nextTrackId = 1;
+
+function initTracks() {
+  tracks = [{ id:nextTrackId++, name:'旋律', color:TRACK_COLORS[0], channel:0, notes:[] }];
+  currentTrackIdx = 0; notes = tracks[0].notes;
+}
+function getAllNotes() {
+  const r=[]; for (const t of tracks) for (const n of t.notes) r.push({...n,_trackId:t.id,_trackName:t.name,_trackColor:t.color,_channel:t.channel}); return r;
+}
+function getTotalNoteCount() {
+  let c=0; for (const t of tracks) c+=t.notes.length; return c;
+}
+function selectTrack(idx) {
+  if (idx<0||idx>=tracks.length) return; currentTrackIdx=idx; notes=tracks[idx].notes; updateTrackUI();
+}
+function addTrack(name,color,channel) {
+  tracks.push({id:nextTrackId++,name,color:color||TRACK_COLORS[tracks.length%8],channel:channel||tracks.length,notes:[]}); selectTrack(tracks.length-1); paintAll(); updateStatus();
+}
+function removeTrack(idx) {
+  if (tracks.length<=1) return; tracks.splice(idx,1); if (currentTrackIdx>=tracks.length) currentTrackIdx=tracks.length-1; notes=tracks[currentTrackIdx].notes; paintAll(); updateStatus(); updateTrackUI();
+}
+function updateTrackUI() {
+  const el=$('track-tabs'); if (!el) return;
+  let h='';
+  for (let i=0;i<tracks.length;i++) {
+    const t=tracks[i], a=i===currentTrackIdx?' active':'';
+    h+='<div class="track-tab'+a+'" style="border-left:3px solid '+t.color+'" onclick="window._switchTrack('+i+')"><span class="track-dot" style="background:'+t.color+'"></span>'+t.name+' <small>('+t.notes.length+')</small>'+(tracks.length>1?'<span class="track-del" onclick="event.stopPropagation();window._removeTrack('+i+')">✕</span>':'')+'</div>';
+  }
+  h+='<div class="track-tab track-add" onclick="window._addTrack()">+ 添加音轨</div>';
+  el.innerHTML=h;
+}
+window._switchTrack=function(i){selectTrack(i);paintAll();updateStatus();};
+window._removeTrack=removeTrack;
+window._addTrack=function(){const n=['和弦','低音','铺底','Pad','Lead','琶音'];addTrack(n[tracks.length%n.length]);};
+
 let bpm = 120;
 let bars = DEF_BARS;
 let messages = [];
@@ -275,6 +458,9 @@ let isResizing = false;
 let resizeNote = null;
 let currentKey = { root: 60, scale: 'major' };
 let currentTimeSignature = { num: 4, den: 4 };
+let currentSection = { type: 'verse', bars: 8, startBeat: 0 };
+let sectionBeatCursor = 0;
+let chordProgression = [];
 let notesHistory = [];
 let abortController = null;
 let masterGainNode = null;
@@ -327,38 +513,28 @@ function renderChatHistory() {
 function saveNotesData() {
   try {
     localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify({
-      notes: notes, bpm: bpm, key: currentKey,
-      timeSignature: currentTimeSignature, timestamp: Date.now()
+      tracks:tracks.map(function(t){return{id:t.id,name:t.name,color:t.color,channel:t.channel,notes:t.notes};}),
+      bpm:bpm,key:currentKey,timeSignature:currentTimeSignature,currentTrackIdx:currentTrackIdx,timestamp:Date.now()
     }));
-  } catch(e) { console.warn('保存音符失败:', e); }
+  } catch(e) { console.warn('保存失败:', e); }
 }
 
 function loadNotesData() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY_NOTES);
-    if (stored) {
-      const data = JSON.parse(stored);
-      if (Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
-        notes = data.notes;
-        bpm = data.bpm || 120;
-        bpmInp.value = bpm;
-        currentKey = data.key || { root: 60, scale: 'major' };
-        currentTimeSignature = data.timeSignature || { num: 4, den: 4 };
-        paintAll();
-        updateStatus();
-        updateKeyDisplay();
-        return true;
-      }
-    }
-  } catch(e) { console.warn('加载音符失败:', e); }
-  return false;
+    const s=localStorage.getItem(STORAGE_KEY_NOTES); if (!s) return false;
+    const d=JSON.parse(s); if (Date.now()-d.timestamp>7*86400000) return false;
+    if (d.tracks&&d.tracks.length) {tracks=d.tracks;for(const t of tracks){if(!t.id)t.id=nextTrackId++;if(!t.name)t.name='Track';if(!t.color)t.color=TRACK_COLORS[0];if(t.channel===undefined)t.channel=0;}nextTrackId=Math.max(nextTrackId,...tracks.map(function(t){return t.id;}))+1;currentTrackIdx=d.currentTrackIdx!==undefined?Math.min(d.currentTrackIdx,tracks.length-1):0;notes=tracks[currentTrackIdx].notes;}
+    else if(d.notes){initTracks();tracks[0].notes=d.notes;notes=tracks[0].notes;}
+    bpm=d.bpm||120;bpmInp.value=bpm;currentKey=d.key||{root:60,scale:'major'};currentTimeSignature=d.timeSignature||{num:4,den:4};
+    paintAll();updateStatus();updateKeyDisplay();updateTrackUI();return true;
+  } catch(e) { console.warn('加载失败:', e); } return false;
 }
 
 let saveTimer = null;
 function startAutoSave() {
   saveTimer = setInterval(() => {
     if (messages.length > 1) saveChatHistory();
-    if (notes.length > 0) saveNotesData();
+    if (getTotalNoteCount() > 0) saveNotesData();
   }, 30000);
 }
 
@@ -374,10 +550,8 @@ function clearSavedData() {
   localStorage.removeItem(STORAGE_KEY_CHAT);
   localStorage.removeItem(STORAGE_KEY_NOTES);
   messages = [{role:'system',content:buildSystemPrompt()}];
-  notes = [];
-  chatMsgs.innerHTML = '';
-  paintAll();
-  updateStatus();
+  initTracks(); chatMsgs.innerHTML=''; paintAll(); updateStatus(); updateTrackUI();
+  sectionBeatCursor = 0; currentSection = { type: 'verse', bars: 8, startBeat: 0 }; chordProgression = [];
   chatAppend('st', '🎹 新对话已开始');
 }
 
@@ -495,29 +669,27 @@ function paintAll() {
     gctx.fillText(String(bar+1), xm+3, HDR_H/2+fontSize/3);
   }
 
-  for (const n of notes) {
+  const allN = getAllNotes();
+  for (const n of allN) {
     const p = n.pitch;
     if (p < MIN_P || p >= MAX_P) continue;
     const x1 = n.start_beat * SUBDIV * CELL_W;
     const y1 = HDR_H + (MAX_P-1-p) * CELL_H;
     const x2 = x1 + n.duration * SUBDIV * CELL_W;
     const y2 = y1 + CELL_H - 1;
-    const t = (n.velocity||DEF_VEL)/127;
-    const grayLevel = Math.floor(120 + 135 * t);
     const isDraggingNote = isDragging && dragNote && n.pitch === dragNote.pitch && Math.abs(n.start_beat - dragNote.start_beat) < 0.001;
     const isResizingNote = isResizing && resizeNote && n.pitch === resizeNote.pitch && Math.abs(n.start_beat - resizeNote.start_beat) < 0.001;
     if (isDraggingNote) {
-      gctx.fillStyle = '#ffffff';
-      gctx.strokeStyle = '#aaaaaa';
+      gctx.fillStyle = '#ffffff'; gctx.strokeStyle = '#aaaaaa';
     } else if (isResizingNote) {
-      gctx.fillStyle = `rgb(${grayLevel},${grayLevel},${grayLevel})`;
-      gctx.strokeStyle = '#888888';
+      gctx.fillStyle = '#88888888'; gctx.strokeStyle = '#888888';
     } else {
-      gctx.fillStyle = `rgb(${grayLevel},${grayLevel},${grayLevel})`;
-      gctx.strokeStyle = '#666666';
+      const tc = n._trackColor || '#00d4aa';
+      gctx.fillStyle = tc + '60'; gctx.strokeStyle = tc; gctx.lineWidth = 1;
     }
     gctx.fillRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
     gctx.strokeRect(x1+1,y1+1,x2-x1-2,y2-y1-1);
+    if (!isDraggingNote && !isResizingNote) gctx.lineWidth = 1;
   }
   updateNotesList();
 }
@@ -532,12 +704,13 @@ function pitchBeatFromXY(ex, ey) {
 }
 
 function findAt(pitch, beat) {
-  return notes.find(n => n.pitch===pitch && beat>=n.start_beat && beat<n.start_beat+n.duration);
+  const an = getAllNotes();
+  return an.find(n => n.pitch===pitch && beat>=n.start_beat && beat<n.start_beat+n.duration);
 }
 
 function findAtRightEdge(pitch, beat, px, cellW) {
   const threshold = Math.max(4, cellW * 0.4);
-  for (const n of notes) {
+  for (const n of getAllNotes()) {
     if (n.pitch !== pitch) continue;
     if (beat >= n.start_beat && beat <= n.start_beat + n.duration) {
       const rightEdgeBeat = n.start_beat + n.duration;
@@ -557,13 +730,15 @@ function addNote(pitch, start, dur, vel) {
 }
 
 function _addNoteRaw(pitch, start, dur, vel) {
-  notes = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
+  const filtered = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
+  tracks[currentTrackIdx].notes = filtered; notes = filtered;
   notes.push({pitch, start_beat:start, duration:dur, velocity:vel||velDefault});
 }
 
 function rmNote(pitch, start) {
   pushHistory();
-  notes = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
+  const filtered = notes.filter(n => !(n.pitch===pitch && Math.abs(n.start_beat-start)<0.001));
+  tracks[currentTrackIdx].notes = filtered; notes = filtered;
 }
 
 gridCv.addEventListener('mousedown', e => {
@@ -706,7 +881,8 @@ gridWrap.addEventListener('scroll', () => {
 window.addEventListener('resize', () => { paintAll(); });
 
 function updateStatus() {
-  statusEl.textContent = `Notes: ${notes.length}  |  BPM: ${bpm}  |  小节: ${bars}  |  音效: ${soundPackName || '默认音色'}`;
+  const tn = tracks[currentTrackIdx] ? tracks[currentTrackIdx].name : '';
+  statusEl.textContent = `${tn} | ${getTotalNoteCount()}音符 | BPM:${bpm} | ${bars}小节 | ${soundPackName||'默认'}`;
 }
 
 function updateKeyDisplay() {
@@ -727,7 +903,8 @@ function pushHistory() {
 
 function undo() {
   if (notesHistory.length === 0) return;
-  notes = notesHistory.pop();
+  tracks[currentTrackIdx].notes = notesHistory.pop();
+  notes = tracks[currentTrackIdx].notes;
   paintAll(); updateStatus();
 }
 
@@ -825,140 +1002,81 @@ function stopAllAudio() {
 }
 
 function updateNotesList() {
-  const listEl = $('notes-list');
-  if (!listEl) return;
-  if (notes.length === 0) {
-    listEl.innerHTML = '<div style="color:#444;padding:8px">暂无音符</div>';
-    updateNotesTitle();
-    return;
+  const listEl = $('notes-list'); if (!listEl) return;
+  if (getTotalNoteCount()===0) { listEl.innerHTML='<div style="color:#444;padding:8px">暂无音符</div>'; updateNotesTitle(); return; }
+  let html='';
+  for (const t of tracks) { if (!t.notes.length) continue;
+    html+='<div style="padding:3px 6px;border-bottom:1px solid #222;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+t.color+'"></span><span style="color:#aaa;font-size:10px;font-weight:bold">'+t.name+' ('+t.notes.length+')</span></div>';
+    const s=[...t.notes].sort((a,b)=>{if(a.start_beat!==b.start_beat)return a.start_beat-b.start_beat;return b.pitch-a.pitch;});
+    for (const n of s) { const nm=NOTE_NAMES[n.pitch%12]+(Math.floor(n.pitch/12)-1),v=n.velocity||DEF_VEL;
+      html+='<div style="padding:2px 6px 2px 20px;border-bottom:1px solid #111130;display:flex;justify-content:space-between;font-size:10px"><span style="color:#00d4aa">'+nm+'</span><span style="color:#666">'+n.start_beat.toFixed(2)+'</span><span style="color:#7c6cf7">'+n.duration.toFixed(2)+'</span><span style="color:#ff9966">'+v+'</span></div>'; }
   }
-  const sorted = [...notes].sort((a, b) => {
-    if (a.start_beat !== b.start_beat) return a.start_beat - b.start_beat;
-    return b.pitch - a.pitch;
-  });
-  let html = '';
-  for (const n of sorted) {
-    const noteName = NOTE_NAMES[n.pitch % 12] + (Math.floor(n.pitch / 12) - 1);
-    const vel = n.velocity || DEF_VEL;
-    html += '<div style="padding:3px 6px;border-bottom:1px solid #111130;display:flex;justify-content:space-between">' +
-      '<span style="color:#00d4aa">' + noteName + '</span>' +
-      '<span style="color:#666">' + n.start_beat.toFixed(2) + '</span>' +
-      '<span style="color:#7c6cf7">' + n.duration.toFixed(2) + '</span>' +
-      '<span style="color:#ff9966">' + vel + '</span>' +
-      '</div>';
-  }
-  listEl.innerHTML = html;
-  updateNotesTitle();
+  listEl.innerHTML=html; updateNotesTitle();
 }
 
 function updateNotesTitle() {
-  const titleEl = $('notes-title');
-  if (titleEl) {
-    titleEl.innerHTML = '🎼 音符列表 <span style="float:right;color:#666;font-weight:normal">共 ' + notes.length + ' 个</span>';
-  }
+  const e=$('notes-title'); if (e) e.innerHTML='🎼 音符列表 <span style="float:right;color:#666;font-weight:normal">共'+tracks.length+'轨 · '+getTotalNoteCount()+'个</span>';
 }
 
 function exportNotesText() {
-  if (notes.length === 0) { alert('没有音符可导出'); return; }
-  let text = 'AI Piano Roll - 音符导出\n================================\n\n';
-  text += '基本信息:\n';
-  text += '  BPM: ' + bpm + '\n';
-  text += '  调式: ' + NOTE_NAMES[currentKey.root % 12] + ' ' + currentKey.scale + '\n';
-  text += '  拍号: ' + currentTimeSignature.num + '/' + currentTimeSignature.den + '\n';
-  text += '  音符数量: ' + notes.length + '\n\n';
-  text += '音符列表:\n--------------------------------\n';
-  text += '音高\t起始拍\t时值\t力度\n';
-  const sorted = [...notes].sort((a, b) => {
-    if (a.start_beat !== b.start_beat) return a.start_beat - b.start_beat;
-    return b.pitch - a.pitch;
-  });
-  for (const n of sorted) {
-    const noteName = NOTE_NAMES[n.pitch % 12] + (Math.floor(n.pitch / 12) - 1);
-    text += noteName + '\t' + n.start_beat.toFixed(2) + '\t' + n.duration.toFixed(2) + '\t' + (n.velocity || DEF_VEL) + '\n';
+  if (getTotalNoteCount()===0) { alert('没有音符可导出'); return; }
+  let text='AI Piano Roll - 音符导出\n================================\n\nBPM:'+bpm+'\n调式:'+NOTE_NAMES[currentKey.root%12]+' '+currentKey.scale+'\n拍号:'+currentTimeSignature.num+'/'+currentTimeSignature.den+'\n音轨数:'+tracks.length+'\n音符总数:'+getTotalNoteCount()+'\n\n';
+  for (const t of tracks) { if (!t.notes.length) continue;
+    text+='音轨:'+t.name+' ('+t.notes.length+'音符)\n--------------------------------\n音高\t起始拍\t时值\t力度\n';
+    const s=[...t.notes].sort((a,b)=>{if(a.start_beat!==b.start_beat)return a.start_beat-b.start_beat;return b.pitch-a.pitch;});
+    for (const n of s) text+=NOTE_NAMES[n.pitch%12]+(Math.floor(n.pitch/12)-1)+'\t'+n.start_beat.toFixed(2)+'\t'+n.duration.toFixed(2)+'\t'+(n.velocity||DEF_VEL)+'\n';
+    text+='\n';
   }
-  const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'ai-piano-roll-notes-' + new Date().toISOString().split('T')[0] + '.txt';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  statusEl.textContent = '✓ 音符已导出为文本';
-  setTimeout(() => updateStatus(), 2000);
+  const b=new Blob([text],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='notes-'+new Date().toISOString().split('T')[0]+'.txt';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+  statusEl.textContent='✓ 已导出'; setTimeout(()=>updateStatus(),2000);
 }
 
 function exportNotesJson() {
-  if (notes.length === 0) { alert('没有音符可导出'); return; }
-  const data = {
-    version: '1.0',
-    exportTime: new Date().toISOString(),
-    bpm: bpm,
-    key: currentKey,
-    timeSignature: currentTimeSignature,
-    notes: notes
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'ai-piano-roll-' + new Date().toISOString().split('T')[0] + '.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  statusEl.textContent = '✓ 音符已导出为 JSON';
-  setTimeout(() => updateStatus(), 2000);
+  if (getTotalNoteCount()===0) { alert('没有音符可导出'); return; }
+  const d={version:'1.0',exportTime:new Date().toISOString(),bpm:bpm,key:currentKey,timeSignature:currentTimeSignature,tracks:tracks.map(function(t){return{id:t.id,name:t.name,color:t.color,channel:t.channel,notes:t.notes};})};
+  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='project-'+new Date().toISOString().split('T')[0]+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+  statusEl.textContent='✓ 已导出'; setTimeout(()=>updateStatus(),2000);
 }
 
 function importNotesJson(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (data.notes) {
-        pushHistory();
-        notes = data.notes;
-        if (data.bpm) { bpm = data.bpm; bpmInp.value = bpm; }
-        if (data.key) currentKey = data.key;
-        if (data.timeSignature) currentTimeSignature = data.timeSignature;
-        paintAll();
-        updateStatus();
-        updateKeyDisplay();
-        statusEl.textContent = '✓ 已导入音符';
-      }
-    } catch(err) { alert('导入失败: ' + err.message); }
-  };
-  reader.readAsText(file);
-  event.target.value = '';
+  const f=event.target.files[0]; if (!f) return; const r=new FileReader();
+  r.onload=function(e){try{const d=JSON.parse(e.target.result);
+    if(d.tracks&&d.tracks.length){tracks=d.tracks;for(const t of tracks){if(!t.id)t.id=nextTrackId++;if(t.channel===undefined)t.channel=0;if(!t.color)t.color=TRACK_COLORS[tracks.indexOf(t)%8];}nextTrackId=Math.max(nextTrackId,...tracks.map(function(t){return t.id;}))+1;currentTrackIdx=0;notes=tracks[0].notes;if(d.bpm){bpm=d.bpm;bpmInp.value=bpm;}if(d.key)currentKey=d.key;if(d.timeSignature)currentTimeSignature=d.timeSignature;paintAll();updateStatus();updateKeyDisplay();updateTrackUI();statusEl.textContent='✓ 已导入'+tracks.length+'音轨';}
+    else if(d.notes){pushHistory();tracks[currentTrackIdx].notes=d.notes;notes=tracks[currentTrackIdx].notes;if(d.bpm){bpm=d.bpm;bpmInp.value=bpm;}if(d.key)currentKey=d.key;if(d.timeSignature)currentTimeSignature=d.timeSignature;paintAll();updateStatus();updateKeyDisplay();statusEl.textContent='✓ 已导入';}
+  }catch(err){alert('导入失败:'+err.message);}}; r.readAsText(f); event.target.value='';
 }
 
-// ═══ MIDI Download ════════════════════════════════════════════
-async function downloadMidi() {
-  if (!notes.length) { alert('没有音符可导出'); return; }
+async function doMidiDownload(payload, filename) {
+  const resp = await fetch('/api/midi', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  if (!resp.ok) { const e=await resp.json().catch(()=>({})); throw new Error(e.error||`HTTP ${resp.status}`); }
+  const blob=await resp.blob(), url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename+'.mid';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function downloadMidiTrack() {
+  const t = tracks[currentTrackIdx];
+  if (!t.notes.length) { alert('当前音轨「'+t.name+'」没有音符'); return; }
   try {
-    const resp = await fetch('/api/midi', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ notes, bpm })
-    });
-    if (!resp.ok) {
-      const e = await resp.json().catch(()=>({}));
-      throw new Error(e.error||`HTTP ${resp.status}`);
-    }
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'ai-piano-roll.mid';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    statusEl.textContent = 'MIDI 已导出';
-  } catch(e) {
-    alert('MIDI 导出失败: ' + e.message);
-  }
+    await doMidiDownload({ tracks: [t], bpm, filename: t.name }, t.name.replace(/[\\/:*?"<>|]/g,'_'));
+    statusEl.textContent = '「'+t.name+'」MIDI 已导出';
+  } catch(e) { alert('MIDI 导出失败: ' + e.message); }
 }
 
-$('btn-midi').addEventListener('click', downloadMidi);
+async function downloadMidiFull() {
+  if (getTotalNoteCount()===0) { alert('没有音符可导出'); return; }
+  try {
+    await doMidiDownload({ tracks, bpm, filename: 'AMR-midi' }, 'AMR-midi');
+    statusEl.textContent = '全部 '+tracks.length+' 个音轨 MIDI 已导出';
+  } catch(e) { alert('MIDI 导出失败: ' + e.message); }
+}
+
+$('btn-midi-track').addEventListener('click', downloadMidiTrack);
+$('btn-midi-all').addEventListener('click', downloadMidiFull);
 
 // ═══ Playback ═════════════════════════════════════════════════
 $('btn-play').addEventListener('click', () => {
@@ -968,7 +1086,8 @@ $('btn-play').addEventListener('click', () => {
   playing = true;
   playStart = audioCtx.currentTime;
   const spb = 60/bpm;
-  for (const n of notes) {
+  const an = getAllNotes();
+  for (const n of an) {
     playNote(n.pitch, playStart + n.start_beat*spb, n.duration*spb, n.velocity);
   }
   animatePlayhead();
@@ -1000,9 +1119,9 @@ function animatePlayhead() {
 }
 
 $('btn-clear').addEventListener('click', () => {
-  if (!notes.length || !confirm('清除所有音符？')) return;
+  if (!notes.length || !confirm('清除「'+tracks[currentTrackIdx].name+'」音轨所有音符？')) return;
   pushHistory();
-  notes = []; paintAll(); updateStatus();
+  tracks[currentTrackIdx].notes=[]; notes=[]; paintAll(); updateStatus();
 });
 
 bpmInp.addEventListener('change', () => { bpm = parseInt(bpmInp.value)||120; updateStatus(); });
@@ -1253,6 +1372,9 @@ $('chat-stop').addEventListener('click', () => {
 $('btn-new-chat').addEventListener('click', () => {
   messages = [{role:'system',content:buildSystemPrompt()}];
   chatMsgs.innerHTML = '';
+  sectionBeatCursor = 0;
+  currentSection = { type: 'verse', bars: 8, startBeat: 0 };
+  chordProgression = [];
   chatAppend('st', '🎹  新对话已开始');
   chatAppend('st', '—————————');
   statusEl.textContent = '新对话已就绪';
@@ -1261,44 +1383,78 @@ $('btn-new-chat').addEventListener('click', () => {
 // ═══ Tool Execution ══════════════════════════════════════════
 function execTool(name, args) {
   try {
+    function targetNotes(tidx) {
+      if (tidx !== undefined && tidx >= 0 && tidx < tracks.length) return tracks[tidx].notes;
+      return notes;
+    }
     switch(name) {
     case 'add_note': {
       let p=args.pitch, s=args.start_beat, d=args.duration, v=args.velocity;
-      const analysis = analyzeNewNotes([{pitch:p, start_beat:s, duration:d, velocity:v}], notes);
-      if (analysis.violations.length > 0) {
-        p = analysis.violations[0].corrected;
-      }
-      addNote(p,s,d,v); paintAll();
+      const tn = targetNotes(args.track_index);
+      const analysis = analyzeNewNotes([{pitch:p, start_beat:s, duration:d, velocity:v}], tn);
+      if (analysis.violations.length > 0) { p = analysis.violations[0].corrected; }
+      tn.push({pitch:p, start_beat:s, duration:d, velocity:v||velDefault});
+      paintAll();
       const result = {ok:true, note:NOTE_NAMES[p%12]+(Math.floor(p/12)-1), beat:s, dur:d};
-      if (analysis.violations.length > 0) {
-        result.warning = '音高已自动修正: 原始 ' + analysis.violations[0].original + ' → ' + p + ' (不在' + NOTE_NAMES[currentKey.root%12] + ' ' + currentKey.scale + '音阶内)';
-      }
-      if (analysis.dissonances.length > 0) {
-        result.dissonances = analysis.dissonances;
-      }
+      if (args.track_index !== undefined) result.track = tracks[args.track_index].name;
+      if (analysis.violations.length > 0) result.warning = '修正: '+analysis.violations[0].original+'→'+p;
       return result;
     }
     case 'add_notes': {
-      const analysis = analyzeNewNotes(args.notes, notes);
+      const tn = targetNotes(args.track_index);
+      const analysis = analyzeNewNotes(args.notes, tn);
       pushHistory();
       let c=0;
+      let humanizedCount = 0;
       for (const nt of args.notes) {
-        _addNoteRaw(nt.pitch, nt.start_beat, nt.duration, nt.velocity); c++;
+        let vel = nt.velocity || velDefault;
+        if (!nt.velocity) {
+          vel = vel + Math.round((Math.random() - 0.5) * 12);
+          vel = Math.max(1, Math.min(127, vel));
+          humanizedCount++;
+        }
+        tn.push({pitch:nt.pitch,start_beat:nt.start_beat,duration:nt.duration,velocity:vel}); c++;
       }
       paintAll();
       const result = {ok:true, count:c};
-      if (analysis.violations.length > 0 || analysis.dissonances.length > 0) {
-        result.analysis = {
-          out_of_scale: analysis.violations.length,
-          corrected: analysis.violations.map(function(v) { return {original: v.original, fixed_to: v.corrected, beat: v.beat}; }),
-          dissonant_pairs: analysis.dissonances.length > 0 ? analysis.dissonances.slice(0, 8) : [],
-          dissonant_count: analysis.dissonances.length,
-        };
-        if (analysis.violations.length > 0) {
-          result.analysis.summary = analysis.violations.length + '个音符不在' + NOTE_NAMES[currentKey.root%12] + ' ' + currentKey.scale + '音阶内，已自动修正';
+      if (humanizedCount > 0) result.humanized = humanizedCount + ' notes received slight velocity variation (±6) for natural feel';
+      if (args.track_index !== undefined) { result.track = tracks[args.track_index].name; result.track_index = args.track_index; }
+      if (analysis.violations.length>0||analysis.dissonances.length>0) {
+        result.analysis = { out_of_scale:analysis.violations.length, corrected:analysis.violations.map(function(v){return{original:v.original,fixed_to:v.corrected,beat:v.beat};}), dissonant_pairs:analysis.dissonances.slice(0,8), dissonant_count:analysis.dissonances.length };
+        if (analysis.violations.length>0) result.analysis.summary=analysis.violations.length+'个音符已修正至'+NOTE_NAMES[currentKey.root%12]+' '+currentKey.scale+'音阶';
+      }
+      if (chordProgression.length > 0) {
+        let chordHitCount = 0, strongBeatCount = 0;
+        for (const nt of args.notes) {
+          const beatInBar = nt.start_beat % 4;
+          if (Math.abs(beatInBar - Math.round(beatInBar)) < 0.01 && (Math.round(beatInBar) === 0 || Math.round(beatInBar) === 2)) {
+            strongBeatCount++;
+            const chord = chordProgression.find(function(c){return nt.start_beat>=c.start_beat && nt.start_beat<c.start_beat+c.duration;});
+            if (chord) {
+              const tones = getChordTones(chord.root, chord.type);
+              if (tones.some(function(t){return Math.abs(t%12 - nt.pitch%12) < 1;})) chordHitCount++;
+            }
+          }
+        }
+        if (strongBeatCount > 0) {
+          result.chord_analysis = {strong_beats:strongBeatCount, chord_tone_hits:chordHitCount, rate: (chordHitCount/strongBeatCount*100).toFixed(0)+'%'};
         }
       }
       return result;
+    }
+    case 'add_track': {
+      const name = args.name || 'Track';
+      addTrack(name, args.color);
+      return {ok:true, track_index:tracks.length-1, name:name, total_tracks:tracks.length};
+    }
+    case 'switch_track': {
+      const idx = args.track_index;
+      if (idx<0||idx>=tracks.length) return {error:'无效音轨索引: '+idx+' (共'+tracks.length+'条)'};
+      selectTrack(idx); notes=tracks[idx].notes; paintAll(); updateStatus();
+      return {ok:true, track_index:idx, name:tracks[idx].name, note_count:tracks[idx].notes.length};
+    }
+    case 'list_tracks': {
+      return { tracks: tracks.map(function(t,i){ return {index:i,id:t.id,name:t.name,channel:t.channel,color:t.color,note_count:t.notes.length}; }), total:tracks.length };
     }
     case 'remove_note': {
       const b4=notes.length;
@@ -1324,15 +1480,22 @@ function execTool(name, args) {
     }
     case 'clear_all':
       pushHistory();
-      notes=[]; paintAll(); return {ok:true};
-    case 'get_notes':
-      return {notes, count:notes.length};
+      tracks[currentTrackIdx].notes=[]; notes=[]; paintAll(); return {ok:true, track:tracks[currentTrackIdx].name};
+    case 'get_notes': {
+      const r = [];
+      for (const tn of tracks) r.push({track_index:tracks.indexOf(tn),name:tn.name,note_count:tn.notes.length,notes:tn.notes});
+      return {tracks:r,current_track_index:currentTrackIdx,current_track:r[currentTrackIdx],total_note_count:getTotalNoteCount()};
+    }
     case 'get_state':
       return {
         bpm, tempo:bpm,
         key:{root:currentKey.root, scale:currentKey.scale, name:NOTE_NAMES[currentKey.root%12]+' '+currentKey.scale},
         time_signature:{numerator:currentTimeSignature.num, denominator:currentTimeSignature.den},
-        note_count:notes.length
+        note_count: getTotalNoteCount(),
+        tracks: tracks.map(function(t,i){return{index:i,id:t.id,name:t.name,channel:t.channel,note_count:t.notes.length};}),
+        current_track:{index:currentTrackIdx,name:tracks[currentTrackIdx].name,notes:tracks[currentTrackIdx].notes.length},
+        section: {type:currentSection.type, bars:currentSection.bars, start_beat:currentSection.startBeat},
+        chords: chordProgression.length > 0 ? chordProgression.map(function(c){return NOTE_NAMES[c.root%12]+c.type+'@'+c.start_beat.toFixed(1);}) : []
       };
     case 'set_tempo':
       bpm=Math.max(40,Math.min(300,args.bpm));
@@ -1346,6 +1509,108 @@ function execTool(name, args) {
       currentTimeSignature = { num: args.numerator, den: args.denominator };
       updateKeyDisplay();
       return {ok:true, ts:args.numerator+'/'+args.denominator};
+    case 'set_section': {
+      currentSection = { type: args.type, bars: args.bars, startBeat: sectionBeatCursor };
+      sectionBeatCursor += args.bars;
+      const sectionGuidance = {
+        intro:    {range:[50,60], vel:[50,65], density:'sparse',   tip:'Build anticipation — use only 2-3 pitches, leave lots of space'},
+        verse:    {range:[55,72], vel:[65,85], density:'moderate', tip:'Conversational rhythm, 4-bar phrases with rests between'},
+        pre_chorus:{range:[60,76], vel:[75,95], density:'building',tip:'Rising energy, notes get higher, velocity increases'},
+        chorus:   {range:[65,84], vel:[85,110],density:'full',    tip:'THE HOOK — higher register, strongest rhythm, fill the space'},
+        bridge:   {range:[55,72], vel:[70,85], density:'contrasting',tip:'Different progression and feel from verse/chorus'},
+        breakdown:{range:[48,65], vel:[50,70], density:'sparse',  tip:'Strip back, create tension, prepare for climax'},
+        build_up: {range:[55,78], vel:[70,110],density:'rising',  tip:'Ascending pitch + velocity crescendo, shorter note values'},
+        drop:     {range:[65,84], vel:[95,120],density:'maximum', tip:'Full energy, dense arrangement, high velocity'},
+        outro:    {range:[48,60], vel:[50,65], density:'fading',  tip:'Descending contour, decreasing velocity, resolve to tonic'}
+      };
+      const g = sectionGuidance[args.type] || sectionGuidance.verse;
+      return {
+        ok:true,
+        section: args.type,
+        bars: args.bars,
+        start_beat: currentSection.startBeat,
+        guidance: g
+      };
+    }
+    case 'set_chords': {
+      chordProgression = args.chords.map(function(c) {
+        return {root:c.root, type:c.type, start_beat:c.start_beat, duration:c.duration};
+      });
+      return {
+        ok:true,
+        chords: chordProgression.map(function(c) {
+          return NOTE_NAMES[c.root%12] + ' ' + c.type + ' @ beat ' + c.start_beat.toFixed(2);
+        }),
+        chord_tones: chordProgression.map(function(c) {
+          return {chord:NOTE_NAMES[c.root%12]+' '+c.type, tones:getChordTones(c.root, c.type).map(function(p){return NOTE_NAMES[p%12]+(Math.floor(p/12)-1);})};
+        })
+      };
+    }
+    case 'analyze_melody': {
+      const allN = getAllNotes();
+      if (allN.length === 0) return {score:0, summary:'暂无音符可分析', suggestions:['先添加一些音符再分析']};
+      let chordToneHits = 0, chordToneTotal = 0;
+      if (chordProgression.length > 0) {
+        for (const n of allN) {
+          const beat = n.start_beat;
+          const chord = chordProgression.find(function(c){return beat>=c.start_beat && beat<c.start_beat+c.duration;});
+          if (chord) {
+            const tones = getChordTones(chord.root, chord.type);
+            chordToneTotal++;
+            if (tones.includes(n.pitch)) chordToneHits++;
+          }
+        }
+      }
+      const durCounts = {};
+      for (const n of allN) { const d = n.duration; durCounts[d] = (durCounts[d]||0)+1; }
+      const uniqueDurs = Object.keys(durCounts).length;
+      const vels = allN.map(function(n){return n.velocity||100;});
+      const velMin = Math.min.apply(null, vels), velMax = Math.max.apply(null, vels);
+      const velSpread = velMax - velMin;
+      const sorted = allN.slice().sort(function(a,b){return a.start_beat-b.start_beat;});
+      let restCount = 0, backToBack = 0;
+      for (let i=1;i<sorted.length;i++) {
+        const prevEnd = sorted[i-1].start_beat + sorted[i-1].duration;
+        const nextStart = sorted[i].start_beat;
+        if (nextStart - prevEnd > 0.2) restCount++;
+        if (nextStart - prevEnd < 0.01) backToBack++;
+      }
+      const pitches = allN.map(function(n){return n.pitch;});
+      let leapCount = 0, stepCount = 0;
+      for (let i=1;i<pitches.length;i++) { const diff=Math.abs(pitches[i]-pitches[i-1]); if(diff<=2)stepCount++; else if(diff>=4)leapCount++; }
+      const suggestions = [];
+      if (chordToneTotal > 0 && chordToneHits/chordToneTotal < 0.6) suggestions.push('强拍上的音符与和弦音匹配率仅 '+(chordToneHits/chordToneTotal*100).toFixed(0)+'%，建议检查 set_chords() 定义的和弦进行，让强拍音符落在和弦音上');
+      if (uniqueDurs < 3) suggestions.push('节奏缺少变化，仅用了 '+uniqueDurs+' 种时值。建议至少混用 3 种不同时值 (0.25/0.5/0.75/1.0/1.5/2.0)');
+      if (velSpread < 15) suggestions.push('力度变化太小 (范围仅'+velSpread+')，真人演奏至少需要 ±15 的动态范围');
+      if (backToBack > allN.length * 0.6) suggestions.push('音符连接太紧密 ('+backToBack+'/'+allN.length+'连续无休止)，需要更多呼吸空间');
+      if (restCount < 3 && allN.length > 8) suggestions.push('只有 '+restCount+' 处休止，建议每 4 小节至少 2 处明显停顿');
+      if (leapCount > stepCount * 2) suggestions.push('跳进过多 ('+leapCount+' 次跳进 vs '+stepCount+' 次级进)，旋律不够连贯');
+      let score = 5;
+      score += (chordToneTotal>0 ? Math.min(2,chordToneHits/chordToneTotal*2) : 0);
+      score += Math.min(2, uniqueDurs/3);
+      score += Math.min(1, velSpread/20);
+      score += Math.min(1, Math.max(0,1-backToBack/allN.length)*2);
+      score = Math.min(10, Math.round(score));
+      return {
+        score: score,
+        summary: score>=8?'优秀':score>=6?'良好':score>=4?'一般':'需要改进',
+        details: {
+          total_notes: allN.length,
+          unique_durations: uniqueDurs, duration_distribution: durCounts,
+          velocity_range: velMin+'–'+velMax, velocity_spread: velSpread,
+          rests_between_notes: restCount, back_to_back_count: backToBack,
+          leaps: leapCount, steps: stepCount, leap_step_ratio: stepCount>0?(leapCount/stepCount).toFixed(1):'∞',
+          chord_tone_rate: chordToneTotal>0?(chordToneHits/chordToneTotal*100).toFixed(0)+'%':'无和弦定义',
+          section: currentSection.type + ' ('+currentSection.bars+' bars)'
+        },
+        suggestions: suggestions.length>0?suggestions:['当前旋律各项指标良好！'],
+        section_guidance: {
+          type: currentSection.type, bars: currentSection.bars,
+          recommended_range: currentSection.type==='chorus'||currentSection.type==='drop'?'65-84':currentSection.type==='verse'?'55-72':'50-80',
+          recommended_velocity: currentSection.type==='chorus'||currentSection.type==='drop'?'85-110':'65-85'
+        }
+      };
+    }
     default: return {error:'unknown tool'};
     }
   } catch(e) { return {error:e.message}; }
@@ -1493,6 +1758,7 @@ modalOverlay.addEventListener('click', e => {
   const hasChat = loadChatHistory();
   const hasNotes = loadNotesData();
 
+  if (!hasNotes) { initTracks(); }
   if (!hasChat) {
     messages = [{role:'system',content:buildSystemPrompt()}];
   }
@@ -1533,6 +1799,7 @@ modalOverlay.addEventListener('click', e => {
   paintAll();
   updateStatus();
   updateKeyDisplay();
+  updateTrackUI();
   loadSoundPack();
 })();
 
@@ -1676,6 +1943,6 @@ document.addEventListener('keydown', e => {
   }
   if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (e.key === 'Delete' && !playing) {
-    if (notes.length && confirm('删除所有音符？')) { pushHistory(); notes = []; paintAll(); updateStatus(); }
+    if (notes.length && confirm('删除「'+tracks[currentTrackIdx].name+'」音轨所有音符？')) { pushHistory(); tracks[currentTrackIdx].notes=[]; notes=[]; paintAll(); updateStatus(); }
   }
 });

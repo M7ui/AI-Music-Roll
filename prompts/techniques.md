@@ -214,3 +214,127 @@ Before generating any melody, verify:
 5. ✅ Key-appropriate notes
 6. ✅ Resolution to tonic
 7. ✅ Breathing space (negative space)
+
+---
+
+## 11. Complete Composition Templates — 完整编曲模板
+
+These are WORKING BLUEPRINTS. Use them as the starting point for any composition request. Do NOT improvise from scratch — adapt one of these templates based on the user's requested style and key.
+
+### Template A: Pop Ballad (C Major, 80 BPM, Verse→Chorus→Verse→Chorus)
+
+**Structure:**
+```
+Section 1: intro (4 bars)     → sparse piano, C-E-G arpeggio
+Section 2: verse (8 bars)     → storytelling, mid-range, rests
+Section 3: chorus (8 bars)    → hook, higher, more energy
+Section 4: outro (4 bars)     → fade on C
+```
+
+**Chord Progression:** C maj (0-4) → G maj (4-8) → Am min (8-12) → F maj (12-16)
+
+**Verse Melody Template (C4-E4 range, vel 65-85):**
+```
+Motif: E4(0.0,0.75) G4(1.0,0.5) [REST 0.25] C5(1.75,1.0)
+Repeat transposed: G4(4.0,0.75) C5(5.0,0.5) [REST 0.25] D5(5.75,1.0)
+Variation: D5(8.0,0.5) C5(8.75,0.25) A4(9.0,1.5) [REST 0.25]
+Resolution: G4(12.0,1.0) E4(13.5,0.5) [REST 0.5] C4(14.5,2.0)
+Key principle: 4-bar phrases, each ending with a rest. Conversational feel.
+```
+
+**Chorus Melody Template (C5-E5 range, vel 85-110):**
+```
+Hook: C5(0.0,0.5) C5(0.75,0.25) E5(1.0,0.75) D5(2.0,0.5) C5(2.75,0.5) A4(3.5,1.0)
+Repeat: C5(4.0,0.5) C5(4.75,0.25) E5(5.0,0.75) D5(6.0,0.5) C5(6.75,0.5) G4(7.5,2.0)
+Key principle: Chorus MUST be higher AND louder than verse. Simple, memorable hook.
+```
+
+### Template B: EDM Drop (A Minor, 128 BPM)
+
+**Structure:**
+```
+Section 1: build_up (4 bars)   → rising 16th notes, vel 70→110
+Section 2: drop (8 bars)       → full energy, layered
+Section 3: breakdown (4 bars)  → stripped, build anticipation
+Section 4: drop (8 bars)       → repeat with variation
+```
+
+**Build-up Template:**
+```
+Phase 1 (0-1):  A3, 2 notes/beat, vel 70-74
+Phase 2 (1-2):  C4, 4 notes/beat, vel 76-82
+Phase 3 (2-3):  E4, 4 notes/beat, vel 84-92
+Phase 4 (3-4):  G4→A4→C5 ascent, 4 notes/beat, vel 96→110
+```
+
+**Drop Lead Melody (A4-C5 range, vel 95-115):**
+```
+Hook phrase: A4(0.0,0.25) C5(0.5,0.25) A4(1.0,0.25) E5(1.5,0.5)
+[REST 0.5]
+Syncopated: G4(2.5,0.25) A4(3.0,0.5) C5(3.75,0.25) D5(4.0,0.5)
+[REST 0.25]
+Repeat: A4(4.5,0.25) C5(5.0,0.25) A4(5.5,0.25) E5(6.0,0.5)
+[REST 0.5]
+Climax: G4(7.0,0.25) A4(7.5,1.0) [REST 0.5] C5(8.0,2.0)
+Key principle: Short, punchy notes. Off-beat starts. Syncopation everywhere.
+```
+
+### Template C: Jazz Ballad (F Minor, 65 BPM, ii-V-I progression)
+
+**Chord Progression:**
+```
+Gm7(b5) (0-4) → C7(b9) (4-8) → Fm7 (8-12) → Fm7 (12-16)
+```
+
+**Melody Template (F4-Ab5 range, vel 55-85):**
+```
+Phrase 1: F4(0.0,1.5) [REST 0.5] G4(2.0,0.5) Ab4(2.75,0.25) C5(3.0,1.5)
+[REST 0.5]
+Phrase 2: Bb4(5.0,1.0) [REST 0.5] C5(6.5,0.75) Db5(7.5,0.25) C5(8.0,2.0)
+[REST 0.5]
+Phrase 3: Ab4(10.5,1.0) [REST 0.5] G4(12.0,0.5) F4(12.75,0.5) Eb4(13.5,1.0)
+[REST 0.5]
+Phrase 4: F4(15.0,2.0) [REST 1.0]
+Key principle: Swung rhythms (0.75+0.25 pairs), chromatic passing tones between chord tones, expressive rubato via velocity waves.
+```
+
+### Template D: Multi-Track Arrangement (C Major, 120 BPM)
+
+This template shows how to compose for multiple tracks simultaneously.
+
+**Track 0: Melody (C4-E5, vel 85-100)**
+```
+Motif-based 8-bar chorus, syncopated starts, chord tones on strong beats.
+```
+
+**Track 1: Bass (C2-C3, vel 90)**
+```
+Root notes of each chord on beats 1 and 3, vel 90 steady.
+C2(0.0,1.0) C2(2.0,1.0) G2(4.0,1.0) G2(6.0,1.0)
+A2(8.0,1.0) A2(10.0,1.0) F2(12.0,1.0) F2(14.0,1.0)
+```
+
+**Track 2: Chords (C3-G4, vel 70-80)**
+```
+Sustained chord pads: C maj triad(0.0,4.0) G maj triad(4.0,4.0)
+Am min triad(8.0,4.0) F maj triad(12.0,4.0)
+```
+
+**Track 3: Counter-melody (G3-C5, vel 60-75)**
+```
+Complementary line, fills gaps where melody rests. Softer than melody.
+```
+
+### How to Use These Templates
+
+1. When a user says "写一段流行歌曲" → adapt Template A
+2. When "来一段电子音乐" → adapt Template B
+3. When "爵士风格的曲子" → adapt Template C
+4. When "完整的编曲" → adapt Template D
+
+Always:
+- Start with set_section() for each section
+- Define set_chords() for the progression
+- Adapt pitches to the user's requested key
+- Maintain the characteristic rhythm, velocity range, and register of each section type
+- After generating, call analyze_melody() to check quality and iterate

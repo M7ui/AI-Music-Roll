@@ -352,9 +352,9 @@ function serveFile(res, filePath) {
   }
 }
 
-function midiGenerate(notes, bpm) {
+function midiGenerate(payload) {
   return new Promise((resolve, reject) => {
-    const input = JSON.stringify({ notes, bpm });
+    const input = JSON.stringify(payload);
     const script = path.join(__dir, 'midi_gen.py');
     const py = spawn('python', [script], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -426,13 +426,17 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'POST' && reqUrl.pathname === '/api/midi') {
       try {
         const body = await readBody(req);
-        const { notes, bpm } = JSON.parse(body);
-        log('info', `MIDI generating ${(notes||[]).length} notes @ ${bpm||120} BPM`);
-        const data = await midiGenerate(notes || [], bpm || 120);
+        const parsed = JSON.parse(body);
+        const noteCount = parsed.tracks
+          ? parsed.tracks.reduce((sum, t) => sum + (t.notes || []).length, 0)
+          : (parsed.notes || []).length;
+        log('info', `MIDI generating ${noteCount} notes @ ${parsed.bpm||120} BPM`);
+        const data = await midiGenerate(parsed);
         log('info', `MIDI done (${data.length} bytes)`);
+        const fname = (parsed.filename || 'ai-piano-roll').replace(/[\\/:*?"<>|]/g, '_');
         res.writeHead(200, {
           'Content-Type': 'audio/midi',
-          'Content-Disposition': 'attachment; filename="ai-piano-roll.mid"',
+          'Content-Disposition': 'attachment; filename="'+encodeURIComponent(fname)+'.mid"',
         });
         res.end(data);
       } catch(e) {
