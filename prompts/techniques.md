@@ -1,340 +1,401 @@
-# Modern Music Composition & Arrangement Techniques
+# Professional Music Composition Techniques
 
-> **⚠️ This knowledge is embedded in your system prompt. You MUST apply these techniques when generating notes. Every melody you create should demonstrate at least 3 of the techniques below.**
+## 1. Rests and Negative Space
 
----
+Rests are the foundation of musical phrasing. Without rests, music becomes an unintelligible wall of sound.
 
-## 1. Rests & Negative Space — 休止符与负空间
+### Placement Rules
+- **After every 1-2 beats of active notes**, insert a 0.25-0.5 beat rest
+- **After every 2-4 beat phrase group**, insert a 0.5-1.0 beat rest
+- **At section boundaries** (e.g., verse to chorus), use a 1.0-2.0 beat rest as a "breath"
+- **Before important notes** (strong beats, resolutions), a brief rest creates anticipation
 
-### The Golden Rule
-**Silence is the most powerful note.** A melody without rests sounds suffocating, mechanical, and rushed — like someone talking without taking a breath.
-
-### Rest Patterns by Style
-
-| Style | Rest Frequency | Rest Duration | Effect |
-|-------|---------------|---------------|--------|
-| Ballad / Slow | Every 1-2 bars | 0.5–1.0 beat | Spacious, emotional |
-| Pop / Rock | Every 2 bars | 0.25–0.5 beat | Natural, singable |
-| Jazz / Swing | Every 2-4 bars | 0.25–0.75 beat | Sophisticated |
-| EDM Build | Tiny gaps (0.25) | 0.25 beat between motifs | Energy building |
-| Ambient / Lo-fi | Every 1-2 bars | 0.5–2.0 beats | Dreamy, floating |
-
-### Concrete Examples
-
-**BAD (all legato — no breathing):**
+### Common Mistakes
+**BAD** — Filling every beat with notes:
 ```
-start: 0.0 dur:0.5 | 0.5 dur:0.5 | 1.0 dur:0.5 | 1.5 dur:0.5 |
-2.0 dur:0.5 | 2.5 dur:0.5 | 3.0 dur:0.5 | 3.5 dur:1.0 |
+C4(start:0, dur:1) D4(start:1, dur:1) E4(start:2, dur:1) F4(start:3, dur:1)
 ```
-→ Sounds like a robot reciting the alphabet. No musicality.
+This sounds robotic and exhausting. No breathing room.
 
-**GOOD (phrased with rests):**
+**GOOD** — Using rests to create phrases:
 ```
-start: 0.0  dur:0.5 | 0.5 dur:0.25 | 0.75 dur:1.0 | 
-[1.75–2.25 REST 0.5 beat]
-start: 2.25 dur:0.25 | 2.5 dur:0.75 | 3.25 dur:0.25 |
-3.5 dur:0.5 | [4.0–4.5 REST 0.5 beat]
+C4(start:0, dur:0.5) D4(start:0.75, dur:0.25) [rest:1.0-1.5] E4(start:1.5, dur:1.0) [rest:2.5-3.0] C4(start:3.0, dur:1.5)
 ```
-→ Natural phrasing. The ear has time to digest each musical "sentence."
+Now you have two phrases with a breath between them.
 
-### Staccato Simulation
-Simulate staccato by using short duration + gap:
-- Note duration: 0.25 beat
-- Gap before next note: 0.25 beat
-- Total slot: 0.5 beat (50% sound, 50% silence)
-- velocity: 70-90 (shorter notes need slightly higher velocity to be heard)
+### Rest Patterns by Genre
+- **Pop**: Rests on beat 4 or the "and" of beat 4 create forward motion
+- **Jazz**: Rests on beats 2 and 4 (the backbeat) create swing feel
+- **Classical**: Rests at phrase boundaries (every 4 bars) mark structural divisions
+- **EDM**: Rests before the drop (1-2 beats of silence) create maximum impact
 
----
+## 2. Syncopation and Rhythmic Interest
 
-## 2. Rhythmic Vocabulary — 节奏词汇表
+Syncopation means placing accents on weak beats or off-beats, creating tension and groove.
 
-### Essential Note Values
+### Definition
+- **On-beat**: Beats 1, 2, 3, 4 (in 4/4 time)
+- **Off-beat**: The "and" between beats (1&, 2&, 3&, 4&)
+- **Syncopated**: Notes that start on off-beats or anticipate the next beat
+
+### Common Syncopated Patterns (in beats)
+
+**Pattern 1: Anticipation**
 ```
-Whole note:     4.0 beats
-Half note:      2.0 beats
-Quarter note:   1.0 beat
-Eighth note:    0.5 beat
-Sixteenth:      0.25 beat
-Dotted quarter: 1.5 beats
-Dotted eighth:  0.75 beat
-Double whole:   8.0 beats
+Note: C4(start:0, dur:0.5) [rest] D4(start:1.5, dur:0.5) E4(start:2, dur:0.5) [rest] F4(start:3.5, dur:0.5)
+```
+The D4 on 1.5 and F4 on 3.5 are syncopated.
+
+**Pattern 2: Off-beat emphasis**
+```
+Note: [rest on beat 1] C4(start:0.5, dur:0.5) [rest on beat 2] D4(start:1.5, dur:0.5) [rest on beat 3] E4(start:2.5, dur:0.5)
+```
+All notes land on the "and" — creates a bouncy feel.
+
+**Pattern 3: Delayed resolution**
+```
+C4(start:0, dur:0.75) D4(start:1, dur:0.75) E4(start:2, dur:0.75) C4(start:3.5, dur:1.0)
+```
+The final C4 is delayed from beat 4 to 3.5, creating surprise.
+
+### Rhythmic Vocabulary
+
+**Eighth-note feel** (most pop/rock):
+```
+1 & 2 & 3 & 4 &
+X . X . X . X .
 ```
 
-### Custom Duration Rules
-- Duration values can be **any multiple of 0.25** (e.g., 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, ...)
-- **Maximum duration:** 8.0 beats
-- **Minimum duration:** 0.25 beats
-- Valid examples: 7.25, 7.5, 6.75, 5.25, etc.
-- Invalid examples: 0.20, 0.15, 8.5, 0.1 (not multiples of 0.25)
+**Sixteenth-note feel** (EDM, hip-hop):
+```
+1 e & a 2 e & a 3 e & a 4 e & a
+X . . . X . . . X . . . X . . .
+```
 
-### Rhythmic Patterns by Genre
+**Triplet feel** (6/8 time, some ballads):
+```
+1 & a 2 & a 3 & a 4 & a
+X . . X . . X . . X . .
+```
 
-**Pop/Rock:**
-- `1.0 1.0 0.5 0.5` (steady driving)
-- `0.5 0.5 0.5 0.5 1.0 1.0` (syncopated)
-- `0.25 0.25 0.5 0.25 0.25 1.0` (pop-punk)
+**Swing feel** (jazz, blues):
+```
+1 & 2 & 3 & 4 &
+X . . X . . X . .
+(Long-short pattern: 0.75 + 0.25 duration)
+```
 
-**Jazz Swing:**
-- Use dotted rhythms (0.75 + 0.25) for swing feel
-- `0.75 0.25 0.75 0.25` (swung eighths)
-- `1.5 0.5 1.0 1.0` (with anticipation)
+## 3. Dynamic Variation
 
-**EDM:**
-- `0.25 0.25 0.25 0.25` (four-on-the-floor)
-- `0.5 0.25 0.25 0.5 0.5` (off-beat accents)
-
----
-
-## 3. Velocity Dynamics — 力度动态
+Dynamics (volume/velocity) create emotional peaks and valleys. Without dynamics, music sounds flat and lifeless.
 
 ### Velocity Ranges
-- **Pianissimo (pp):** 20-40
-- **Piano (p):** 40-60
-- **Mezzo (mp-mf):** 60-90
-- **Forte (f):** 90-110
-- **Fortissimo (ff):** 110-127
+
+| Dynamic Level | Velocity Range | Use Case |
+|--------------|----------------|----------|
+| Pianissimo (pp) | 30-45 | Intimate moments, endings |
+| Piano (p) | 45-60 | Verses, quiet sections |
+| Mezzo-piano (mp) | 60-75 | Normal passages |
+| Mezzo-forte (mf) | 75-90 | Strong passages |
+| Forte (f) | 90-105 | Chorus, climaxes |
+| Fortissimo (ff) | 105-120 | Maximum intensity, drops |
 
 ### Dynamic Shapes
-- **Crescendo:** Gradually increase velocity over 2-4 notes
-- **Decrescendo:** Gradually decrease velocity
-- **Accent:** One note with significantly higher velocity (e.g., +20)
-- **Pianissimo entrance:** Start soft, build gradually
 
----
-
-## 4. Chord Progressions — 和弦进行
-
-### Pop Progressions
-- **I-V-vi-IV:** C-G-Am-F (most popular)
-- **I-vi-IV-V:** C-Am-F-G
-- **vi-IV-I-V:** Am-F-C-G
-
-### Jazz Standards
-- **ii-V-I:** Dm7-G7-Cmaj7
-- **I-viio-ii-V:** C-Bdim-Dm7-G7
-
----
-
-## 5. Scale Types — 音阶类型
-
-| Scale | Notes | Mood |
-|-------|-------|------|
-| Major | 1-2-3-4-5-6-7 | Bright, happy |
-| Minor | 1-2-b3-4-5-b6-b7 | Sad, melancholic |
-| Pentatonic Major | 1-2-3-5-6 | Folk, pop |
-| Pentatonic Minor | 1-b3-4-5-b7 | Blues, rock |
-| Blues | 1-b3-4-b5-5-b7 | Soulful |
-
----
-
-## 6. Melodic Contour — 旋律轮廓
-
-### Shape Patterns
-- **Ascending:** Notes moving upward (builds tension)
-- **Descending:** Notes moving downward (resolves tension)
-- **Arch:** Up then down (question-answer)
-- **Wave:** Gentle undulation (conversational)
-
-### Avoid
-- **Parallel motion:** All voices moving in same direction
-- **Large leaps without resolution:** Jumping an octave without stepwise return
-
----
-
-## 7. Call & Response — 呼应结构
-
-### Phrase Structure
-- **Question (A):** 2 bars, ends on non-tonic (2, 4, or 5)
-- **Answer (B):** 2 bars, resolves to tonic (1 or 3)
-- **Development (C):** Variation of A
-- **Conclusion (D):** Final resolution
-
-### Example (4/4)
+**Crescendo (gradually louder)**:
 ```
-Phrase A (0-2): Question ending on 5
-REST: 0.5 beat
-Phrase B (2.5-4.5): Answer resolving to 1
-REST: 0.5 beat
-Phrase C (5-7): Variation
-REST: 0.5 beat
-Phrase D (7.5-9): Conclusion
+Notes with velocity: 60 → 70 → 80 → 90 → 100
 ```
 
----
+**Decrescendo (gradually softer)**:
+```
+Notes with velocity: 100 → 90 → 80 → 70 → 60
+```
 
-## 8. EDM Production Techniques
+**Bell curve (rise then fall)**:
+```
+Notes with velocity: 60 → 80 → 100 → 80 → 60
+```
 
-### Drop Structure
-1. **Build-up:** Gradually add layers, filter sweep
-2. **Drop:** Full sound, heavy bass
-3. **Breakdown:** Sparse, prepare for next drop
+**Terraced dynamics (sudden change)**:
+```
+Notes with velocity: 60 → 60 → 60 → 100 → 100 → 100
+```
 
-### Sidechain Compression
-- Duck bass when kick hits
-- Creates pumping effect
-- Use 0.25 beat intervals
+### Dynamic Rules
+1. **Never use the same velocity for more than 3 consecutive notes**
+2. **Strong beats (1, 3) should be slightly louder than weak beats**
+3. **Higher notes in a phrase can be slightly louder** (natural instrument behavior)
+4. **Rests before loud notes amplify the impact** (silence is dynamic contrast)
 
----
+## 4. Motif and Repetition
 
-## 9. Classical Counterpoint
+A motif is a short, memorable musical idea (3-7 notes) that serves as the building block of a composition.
 
-### Rules
-1. **No parallel 5ths/octaves**
-2. **Contrary motion preferred**
-3. **Stepwise motion (conjunct)** over leaps (disjunct)
-4. **Voice leading:** Smooth transitions between chords
+### Creating a Motif
+1. **Start simple**: 3-5 notes with a clear rhythm
+2. **Make it singable**: If you can't hum it, it's too complex
+3. **Give it character**: Use a distinctive interval (leap) or rhythm
+4. **Test it**: Play it 4 times in a row — does it bore you?
 
-### Voice Ranges
-- Soprano: 60-80
-- Alto: 50-70
-- Tenor: 40-60
-- Bass: 36-50
+### Development Techniques
 
----
+**Exact repetition**:
+```
+Motif: C4 D4 E4 G4 (beats 0-2)
+Repeat: C4 D4 E4 G4 (beats 2-4)
+```
+Builds familiarity. Use sparingly.
 
-## 10. Lyrical Writing Tips
+**Sequence (transposition)**:
+```
+Motif: C4 D4 E4 G4 (C major)
+Sequence: E4 F#4 G4 B4 (up a 3rd)
+```
+Same intervals, different starting note. Creates motion.
 
-### Syllable Mapping
-- Short notes = staccato syllables (quick, light)
-- Long notes = held vowels (sustained)
+**Inversion**:
+```
+Motif: C4 E4 G4 (ascending)
+Inversion: C4 A3 F3 (descending)
+```
+Mirror image. Creates contrast.
 
-### Rhythm Matching
-- Natural speech rhythm should match musical rhythm
-- Avoid forcing words into awkward note values
+**Augmentation (stretch)**:
+```
+Motif: C4(0.5) D4(0.5) E4(0.5)
+Augmented: C4(1.0) D4(1.0) E4(1.0)
+```
+Same notes, longer durations. Creates space.
 
----
+**Diminution (compress)**:
+```
+Motif: C4(1.0) D4(1.0) E4(1.0)
+Diminished: C4(0.5) D4(0.5) E4(0.5)
+```
+Same notes, shorter durations. Creates urgency.
 
-## Final Checklist
+### Motif Placement
+- **Verse**: Introduce motif, develop with repetition
+- **Pre-chorus**: Transform motif (sequence, augmentation)
+- **Chorus**: State motif clearly, repeat 2-4 times
+- **Bridge**: Contrast with new motif or inversion
 
-Before generating any melody, verify:
-1. ✅ At least 3 different note durations
-2. ✅ Rests every 2-4 bars
-3. ✅ Velocity variation (not all same)
-4. ✅ Clear phrase structure
-5. ✅ Key-appropriate notes
-6. ✅ Resolution to tonic
-7. ✅ Breathing space (negative space)
+## 5. Melodic Contour
 
----
+Contour is the shape of a melody — how it rises and falls over time.
 
-## 11. Complete Composition Templates — 完整编曲模板
+### Common Contours
 
-These are WORKING BLUEPRINTS. Use them as the starting point for any composition request. Do NOT improvise from scratch — adapt one of these templates based on the user's requested style and key.
+**Arch (rise then fall)**:
+```
+C4 → E4 → G4 → C5 → G4 → E4 → C4
+```
+Most natural contour. Used in choruses.
 
-### Template A: Pop Ballad (C Major, 80 BPM, Verse→Chorus→Verse→Chorus)
+**Descending (starts high, falls)**:
+```
+C5 → B4 → G4 → E4 → D4 → C4
+```
+Creates resolution, good for endings.
+
+**Ascending (starts low, rises)**:
+```
+C4 → D4 → E4 → G4 → A4 → C5
+```
+Creates tension, good for build-ups.
+
+**Wave (oscillating)**:
+```
+C4 → E4 → D4 → G4 → F4 → A4 → G4
+```
+Creates movement, good for verses.
+
+### Contour Rules
+1. **Peak placement**: Place the highest note at the structural climax (usually chorus, beat 2-3)
+2. **Step vs. Leap**: Mix steps (2 semitones) and leaps (4+ semitones) for variety
+3. **Resolution**: After a leap, resolve by step in the opposite direction
+4. **Range**: Keep within an octave for singability (unless intentionally dramatic)
+
+## 6. Call and Response
+
+Call and response creates dialogue in music — one phrase "asks," another "answers."
+
+### Structure
+- **Call**: Rising contour, ends on unstable note (2nd, 4th, 7th), higher velocity
+- **Response**: Falling contour, ends on stable note (root, 3rd, 5th), lower velocity
+
+### Example (8 bars)
+```
+Call (bars 1-4):   C4 → E4 → G4 → A4 (rising, ends on 6th — unstable)
+Response (bars 5-8): G4 → E4 → D4 → C4 (falling, ends on root — stable)
+```
+
+### Applications
+- **Verse**: Call on phrase 1, response on phrase 2
+- **Chorus**: Call in high register, response in low register
+- **Solo**: Call with fast notes, response with slow notes
+
+## 7. Melodic Rhythm
+
+Melodic rhythm is the pattern of note durations, independent of pitch.
+
+### Rhythmic Motifs
+Create a rhythmic pattern and reuse it with different pitches:
+
+**Rhythm**: 0.5, 0.25, 0.25, 0.5, 0.5
+```
+With pitches: C4(0.5) D4(0.25) E4(0.25) G4(0.5) C5(0.5)
+Same rhythm: E4(0.5) F4(0.25) G4(0.25) A4(0.5) E5(0.5)
+```
+
+### Rhythmic Density
+
+**Sparse** (0.5-1.0 durations): Creates space, good for intros
+**Medium** (0.25-0.5 durations): Normal density, good for verses
+**Dense** (0.125-0.25 durations): Creates intensity, good for build-ups
+**Mixed**: Combine sparse and dense for contrast
+
+### Rhythmic Rules
+1. **Group notes in 2s and 4s**: Human ears naturally group by 2 and 4
+2. **Vary note lengths**: Mix short (0.25) and long (0.5-1.0) notes
+3. **Use dotted rhythms**: 0.75 + 0.25 creates swing feel
+4. **Rest on strong beats occasionally**: Creates syncopation
+
+## 8. Harmonic Awareness
+
+Even in a single-line melody, the underlying harmony guides note choices.
+
+### Chord Tones vs. Non-Chord Tones
+
+**C Major chord (C-E-G)**:
+- Chord tones: C(60), E(64), G(67) — stable, consonant
+- Non-chord tones: D(62), F(65), A(69), B(71) — unstable, create motion
+
+### Rules for Chord Tone Placement
+1. **Strong beats (1, 3)**: Use chord tones for stability
+2. **Weak beats (2, 4)**: Non-chord tones OK — they resolve to chord tones
+3. **Long notes**: Should be chord tones (they're emphasized)
+4. **Passing tones**: Short notes (0.25) between chord tones create smooth lines
+
+### Common Patterns
+
+**Passing tone** (connects two chord tones):
+```
+C4(0.5) D4(0.25) E4(0.5)
+D is passing — it connects C to E
+```
+
+**Neighbor tone** (departure and return):
+```
+C4(0.5) D4(0.25) C4(0.5)
+D is neighbor — it leaves C and returns
+```
+
+**Suspension** (holds previous chord tone):
+```
+E4(0.5) E4(0.25) C4(0.5)
+The second E is suspension — it delays resolution to C
+```
+
+## 9. Counterpoint (Simplified)
+
+Counterpoint is the art of combining multiple melodic lines.
+
+### Rules (for multi-track compositions)
+1. **Contrary motion**: When one track rises, the other falls
+2. **Avoid parallel motion**: Don't move both tracks in the same direction by the same interval
+3. **Rhythmic independence**: If track A has long notes, track B should have short notes
+4. **Register separation**: Keep tracks in different pitch ranges (Bass: 36-50, Chords: 48-67, Melody: 60-84)
+
+### Voice Leading (simplified)
+When chords change, each voice should move by the smallest possible interval:
+```
+Chord 1: C4-E4-G4
+Chord 2: C4-F4-A4
+Voice 1: C4 → C4 (stays)
+Voice 2: E4 → F4 (up 2 semitones)
+Voice 3: G4 → A4 (up 2 semitones)
+```
+
+## 10. Complete Composition Templates
+
+### Template A: Pop Ballad (C Major, 72 BPM)
+
+**Chord Progression:**
+Verse: C (0-4) → G (4-8) → Am (8-12) → F (12-16)
+Chorus: F (0-4) → C (4-8) → G (8-12) → Am (12-16)
 
 **Structure:**
-```
-Section 1: intro (4 bars)     → sparse piano, C-E-G arpeggio
-Section 2: verse (8 bars)     → storytelling, mid-range, rests
-Section 3: chorus (8 bars)    → hook, higher, more energy
-Section 4: outro (4 bars)     → fade on C
-```
+Section 1: intro (4 bars)
+Section 2: verse (8 bars)
+Section 3: chorus (8 bars)
+Section 4: outro (4 bars)
 
-**Chord Progression:** C maj (0-4) → G maj (4-8) → Am min (8-12) → F maj (12-16)
+**Melody Contour:**
+Verse: Starts low (C4), rises to G4, falls back to E4
+Chorus: Starts higher (E4), peaks at C5, resolves to G4
 
-**Verse Melody Template (C4-E4 range, vel 65-85):**
-```
-Motif: E4(0.0,0.75) G4(1.0,0.5) [REST 0.25] C5(1.75,1.0)
-Repeat transposed: G4(4.0,0.75) C5(5.0,0.5) [REST 0.25] D5(5.75,1.0)
-Variation: D5(8.0,0.5) C5(8.75,0.25) A4(9.0,1.5) [REST 0.25]
-Resolution: G4(12.0,1.0) E4(13.5,0.5) [REST 0.5] C4(14.5,2.0)
-Key principle: 4-bar phrases, each ending with a rest. Conversational feel.
-```
-
-**Chorus Melody Template (C5-E5 range, vel 85-110):**
-```
-Hook: C5(0.0,0.5) C5(0.75,0.25) E5(1.0,0.75) D5(2.0,0.5) C5(2.75,0.5) A4(3.5,1.0)
-Repeat: C5(4.0,0.5) C5(4.75,0.25) E5(5.0,0.75) D5(6.0,0.5) C5(6.75,0.5) G4(7.5,2.0)
-Key principle: Chorus MUST be higher AND louder than verse. Simple, memorable hook.
-```
+**Note Density:**
+Verse: 1-2 notes per beat (conversational)
+Chorus: 2-4 notes per beat (memorable)
 
 ### Template B: EDM Drop (A Minor, 128 BPM)
 
+**Chord Progression:**
+Am (0-4) → F (4-8) → C (8-12) → G (12-16)
+
 **Structure:**
-```
-Section 1: build_up (4 bars)   → rising 16th notes, vel 70→110
-Section 2: drop (8 bars)       → full energy, layered
-Section 3: breakdown (4 bars)  → stripped, build anticipation
-Section 4: drop (8 bars)       → repeat with variation
-```
+Section 1: intro (4 bars)
+Section 2: build_up (8 bars)
+Section 3: drop (16 bars)
+Section 4: breakdown (4 bars)
+Section 5: drop (8 bars)
+Section 6: outro (4 bars)
 
-**Build-up Template:**
-```
-Phase 1 (0-1):  A3, 2 notes/beat, vel 70-74
-Phase 2 (1-2):  C4, 4 notes/beat, vel 76-82
-Phase 3 (2-3):  E4, 4 notes/beat, vel 84-92
-Phase 4 (3-4):  G4→A4→C5 ascent, 4 notes/beat, vel 96→110
-```
+**Melody Contour:**
+Build-up: Ascending line A3 → A4, velocity 70→110
+Drop: Oscillating between E4 and A4, high energy, velocity 95-120
 
-**Drop Lead Melody (A4-C5 range, vel 95-115):**
-```
-Hook phrase: A4(0.0,0.25) C5(0.5,0.25) A4(1.0,0.25) E5(1.5,0.5)
-[REST 0.5]
-Syncopated: G4(2.5,0.25) A4(3.0,0.5) C5(3.75,0.25) D5(4.0,0.5)
-[REST 0.25]
-Repeat: A4(4.5,0.25) C5(5.0,0.25) A4(5.5,0.25) E5(6.0,0.5)
-[REST 0.5]
-Climax: G4(7.0,0.25) A4(7.5,1.0) [REST 0.5] C5(8.0,2.0)
-Key principle: Short, punchy notes. Off-beat starts. Syncopation everywhere.
-```
+**Note Density:**
+Build-up: Starts sparse (0.5), gets dense (0.25)
+Drop: Consistently dense (0.25), with rests before downbeats
 
-### Template C: Jazz Ballad (F Minor, 65 BPM, ii-V-I progression)
+### Template C: Jazz Ballad (F Minor, 80 BPM)
 
 **Chord Progression:**
-```
-Gm7(b5) (0-4) → C7(b9) (4-8) → Fm7 (8-12) → Fm7 (12-16)
-```
+Fm7 (0-4) → Bbm7 (4-8) → C7 (8-12) → Fm7 (12-16)
 
-**Melody Template (F4-Ab5 range, vel 55-85):**
-```
-Phrase 1: F4(0.0,1.5) [REST 0.5] G4(2.0,0.5) Ab4(2.75,0.25) C5(3.0,1.5)
-[REST 0.5]
-Phrase 2: Bb4(5.0,1.0) [REST 0.5] C5(6.5,0.75) Db5(7.5,0.25) C5(8.0,2.0)
-[REST 0.5]
-Phrase 3: Ab4(10.5,1.0) [REST 0.5] G4(12.0,0.5) F4(12.75,0.5) Eb4(13.5,1.0)
-[REST 0.5]
-Phrase 4: F4(15.0,2.0) [REST 1.0]
-Key principle: Swung rhythms (0.75+0.25 pairs), chromatic passing tones between chord tones, expressive rubato via velocity waves.
-```
+**Structure:**
+Section 1: intro (4 bars)
+Section 2: verse (8 bars)
+Section 3: bridge (4 bars)
+Section 4: verse (8 bars)
+Section 5: outro (4 bars)
+
+**Melody Contour:**
+Verse: Wave contour, centered around Ab4
+Bridge: Higher register, peaks at C5
+
+**Note Density:**
+Verse: Swing feel (0.75 + 0.25), medium density
+Bridge: More active, shorter notes
 
 ### Template D: Multi-Track Arrangement (C Major, 120 BPM)
 
-This template shows how to compose for multiple tracks simultaneously.
+**Tracks:**
+1. Melody (60-84): Main hook, syncopated rhythm
+2. Bass (36-50): Root notes on beat 1, walking pattern
+3. Chords (48-67): Pad or rhythmic comping
+4. Countermelody (55-72): Softer, fills gaps in main melody
 
-**Track 0: Melody (C4-E5, vel 85-100)**
-```
-Motif-based 8-bar chorus, syncopated starts, chord tones on strong beats.
-```
+**Structure:**
+Section 1: verse (8 bars) — melody + bass only
+Section 2: chorus (8 bars) — all tracks
+Section 3: verse (8 bars) — melody + bass + chords
+Section 4: chorus (8 bars) — all tracks
 
-**Track 1: Bass (C2-C3, vel 90)**
-```
-Root notes of each chord on beats 1 and 3, vel 90 steady.
-C2(0.0,1.0) C2(2.0,1.0) G2(4.0,1.0) G2(6.0,1.0)
-A2(8.0,1.0) A2(10.0,1.0) F2(12.0,1.0) F2(14.0,1.0)
-```
-
-**Track 2: Chords (C3-G4, vel 70-80)**
-```
-Sustained chord pads: C maj triad(0.0,4.0) G maj triad(4.0,4.0)
-Am min triad(8.0,4.0) F maj triad(12.0,4.0)
-```
-
-**Track 3: Counter-melody (G3-C5, vel 60-75)**
-```
-Complementary line, fills gaps where melody rests. Softer than melody.
-```
-
-### How to Use These Templates
-
-1. When a user says "写一段流行歌曲" → adapt Template A
-2. When "来一段电子音乐" → adapt Template B
-3. When "爵士风格的曲子" → adapt Template C
-4. When "完整的编曲" → adapt Template D
-
-Always:
-- Start with set_section() for each section
-- Define set_chords() for the progression
-- Adapt pitches to the user's requested key
-- Maintain the characteristic rhythm, velocity range, and register of each section type
-- After generating, call analyze_melody() to check quality and iterate
+**Voice Leading:**
+- Bass: Moves by 4ths and 5ths (root motion)
+- Chords: Moves by steps (smooth voice leading)
+- Melody: Contrary to bass (when bass goes down, melody goes up)
