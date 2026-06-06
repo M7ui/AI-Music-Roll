@@ -1,4 +1,4 @@
-﻿﻿const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_KEYS = new Set([1,3,6,8,10]);
 const MIN_P = 36, MAX_P = 97, N_P = MAX_P - MIN_P;
 const KEY_W = 56, HDR_H = 22;
@@ -573,7 +573,8 @@ const soundBadge = $('sound-badge');
 // ═══ Responsive Canvas Sizing ══════════════════════════════════
 function calcCellSize() {
   const availW = gridWrap.clientWidth || 800;
-  const availH = window.innerHeight - toolbar.offsetHeight - statusEl.offsetHeight - 4;
+  const trackTabs = document.getElementById('track-tabs');
+  const availH = window.innerHeight - toolbar.offsetHeight - (trackTabs ? trackTabs.offsetHeight : 0) - statusEl.offsetHeight - 4;
   
   const minCellH = 14;
   const minCellW = 8;
@@ -610,11 +611,15 @@ function paintAll() {
   keysCv.height = (HDR_H + th) * dpr;
   keysCv.style.width = KEY_W + 'px';
   keysCv.style.height = (HDR_H + th) + 'px';
+  keysCv.style.minWidth = keysCv.style.maxWidth = keysCv.style.width;
+  keysCv.style.minHeight = keysCv.style.maxHeight = keysCv.style.height;
 
   gridCv.width = tw * dpr;
   gridCv.height = (HDR_H + th) * dpr;
   gridCv.style.width = tw + 'px';
   gridCv.style.height = (HDR_H + th) + 'px';
+  gridCv.style.minWidth = gridCv.style.maxWidth = gridCv.style.width;
+  gridCv.style.minHeight = gridCv.style.maxHeight = gridCv.style.height;
 
   const gctx = gridCv.getContext('2d');
   const kctx = keysCv.getContext('2d');
@@ -1230,7 +1235,7 @@ async function chatSendMsg() {
   showThinking();
   abortController = new AbortController();
   let iterations = 0;
-  const MAX_ITER = 20;
+  const MAX_ITER = 50;
 
   try {
     while (iterations < MAX_ITER) {
